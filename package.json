@@ -8,6 +8,11 @@
   "scripts": {
     "build": "npm run build -w @kagura-run/core && npm run build -w @kagura-run/cli",
     "typecheck": "npm run typecheck -w @kagura-run/core && npm run typecheck -w @kagura-run/cli",
+    "test": "vitest run",
     "clean": "npm run clean -w @kagura-run/core && npm run clean -w @kagura-run/cli"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "vitest": "^4.0.18"
   }
 }
