@@ -1,8 +1,8 @@
 # Core Extraction TODO
 
-Step-by-step guide for extracting test execution logic from `apps/web/lib/` into `packages/core/`.
+Step-by-step guide for extracting test execution logic from `apps/web/lib/` into `packages-run/core/`.
 
-**Goal:** Create a standalone `@kagura/core` package that can run tests locally (CLI) or in the cloud (web) by swapping adapters.
+**Goal:** Create a standalone `@kagura-run/core` package that can run tests locally (CLI) or in the cloud (web) by swapping adapters.
 
 ---
 
@@ -54,7 +54,7 @@ These files form the core test execution engine. Extract them first.
   - `uuid`
 - **DB imports:** ⚠️ Type imports only (TestStep)
 - **Extraction notes:**
-  - Move `TestStep` type to `@kagura/core/types.ts`
+  - Move `TestStep` type to `@kagura-run/core/types.ts`
   - Replace `saveScreenshot()` with `adapters.screenshots.save()`
   - Replace `emitTestEvent()` with `adapters.events.emit()`
   - Remove fs/path imports if screenshot adapter handles paths
@@ -86,7 +86,7 @@ These files form the core test execution engine. Extract them first.
   - Replace user interaction (ask_user) with `adapters.interaction.prompt()`
   - Replace screenshot storage with `adapters.screenshots.save()`
   - Replace AI client with `adapters.ai.getClient()`
-  - Move types to `@kagura/core/types.ts`
+  - Move types to `@kagura-run/core/types.ts`
 - **Effort:** 🔴 High (8-12 hours)
 
 ---
@@ -226,7 +226,7 @@ These enhance functionality but aren't required for basic test execution.
 - **Purpose:** Storage abstraction layer — supports local filesystem and S3-compatible services.
 - **Dependencies:**
   - `fs/promises`, `path`
-  - `@aws-sdk/client-s3`
+  - `@aws-sdk-run/client-s3`
 - **DB imports:** ❌ None
 - **Extraction notes:**
   - May not need to extract — screenshot-storage.ts wraps this
@@ -337,7 +337,7 @@ These files contain billing, auth, database, or cloud-specific logic.
    - [ ] `dom-extractor.ts` — cleanest, no deps
    - [ ] `normalize-url.ts` — pure utility
    - [ ] `provider-errors.ts` — pure utility
-   - [ ] Move core types to `packages/core/src/types.ts`
+   - [ ] Move core types to `packages-run/core/src/types.ts`
 
 2. **Week 2: AI Layer**
    - [ ] `ai-parser.ts` — needs AIProvider adapter
@@ -366,7 +366,7 @@ These files contain billing, auth, database, or cloud-specific logic.
 
 ### 1. Type Coupling with `../db.ts`
 Many files import types from `../db.ts`. Need to:
-- Duplicate essential types in `packages/core/src/types.ts`
+- Duplicate essential types in `packages-run/core/src/types.ts`
 - Or re-export from a shared location
 
 ### 2. AI Provider Abstraction
@@ -395,12 +395,12 @@ Current code is tightly coupled to Anthropic SDK. Need to:
 
 Extraction is complete when:
 
-1. `@kagura/core` can execute a test given only:
+1. `@kagura-run/core` can execute a test given only:
    - Test description
    - Target URL
    - Injected `CoreAdapters`
 
-2. No imports from `apps/web/` in `packages/core/`
+2. No imports from `apps/web/` in `packages-run/core/`
 
 3. CLI can run tests locally without any web dependencies
 

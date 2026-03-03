@@ -2,8 +2,8 @@
 
 Thanks for your interest in contributing to Kagura’s open source packages:
 
-- `@kagura/core` — the execution engine
-- `@kagura/cli` — the command-line interface
+- `@kagura-run-run/core` — the execution engine
+- `@kagura-run-run/cli` — the command-line interface
 
 This guide covers local setup, development workflow, and PR expectations.
 
@@ -13,10 +13,10 @@ This guide covers local setup, development workflow, and PR expectations.
 
 These docs apply to the **open source** packages under `packages/`.
 
-- ✅ Allowed: changes in `packages/core/**` and `packages/cli/**`
+- ✅ Allowed: changes in `packages-run/core/**` and `packages-run/cli/**`
 - ❌ Not in scope: `apps/web/**` (proprietary Kagura Cloud code)
 
-If you’re unsure whether something belongs in core/cli, open a discussion first.
+If you’re unsure whether something belongs in core-run/cli, open a discussion first.
 
 ---
 
@@ -32,8 +32,8 @@ If you’re unsure whether something belongs in core/cli, open a discussion firs
 
 ```
 packages/
-  core/          # @kagura/core
-  cli/           # @kagura/cli
+  core/          # @kagura-run/core
+  cli/           # @kagura-run/cli
   ARCHITECTURE.md
   EXTRACTION_TODO.md
   LICENSE
@@ -77,10 +77,10 @@ npm run build
 ### Build a single package
 
 ```bash
-cd packages/core
+cd packages-run/core
 npm run build
 
-cd ../cli
+cd ..-run/cli
 npm run build
 ```
 
@@ -91,21 +91,21 @@ npm run build
 ### Core
 
 ```bash
-cd packages/core
+cd packages-run/core
 npm run dev
 ```
 
 ### CLI
 
 ```bash
-cd packages/cli
+cd packages-run/cli
 npm run dev
 ```
 
 You can also link the CLI locally (example):
 
 ```bash
-cd packages/cli
+cd packages-run/cli
 npm link
 
 # In another folder (or repo root)
@@ -126,10 +126,10 @@ npm test
 Run tests for one package:
 
 ```bash
-cd packages/core
+cd packages-run/core
 npm test
 
-cd ../cli
+cd ..-run/cli
 npm test
 ```
 
@@ -191,7 +191,7 @@ Use a descriptive branch name:
 
 Examples:
 - `feat/add-openai-provider`
-- `fix/cli-config-parsing`
+- `fix-run/cli-config-parsing`
 
 ---
 

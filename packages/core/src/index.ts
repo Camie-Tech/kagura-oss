@@ -1,5 +1,5 @@
 /**
- * @kagura/core - Kagura AI Test Execution Engine
+ * @kagura-run/core - Kagura AI Test Execution Engine
  *
  * Open source agentic test execution engine.
  * See CLI_EXTRACTION_PLAN.md for implementation roadmap.

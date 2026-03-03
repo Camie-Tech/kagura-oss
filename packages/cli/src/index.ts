@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @kagura/cli - Kagura AI Command Line Interface
+ * @kagura-run/cli - Kagura AI Command Line Interface
  *
  * Run agentic tests from the command line.
  * See CLI_EXTRACTION_PLAN.md for implementation roadmap.

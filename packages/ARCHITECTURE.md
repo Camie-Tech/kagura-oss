@@ -11,21 +11,21 @@ Kagura is structured as a monorepo with clear boundaries between open source pac
 ```
 kagura-app/
 ├── packages/
-│   ├── core/          # @kagura/core   — Open Source (Apache-2.0)
-│   └── cli/           # @kagura/cli    — Open Source (Apache-2.0)
+│   ├── core/          # @kagura-run-run/core   — Open Source (Apache-2.0)
+│   └── cli/           # @kagura-run-run/cli    — Open Source (Apache-2.0)
 └── apps/
     └── web/           # Kagura Cloud   — Proprietary
 ```
 
 | Package | License | Description |
 |---------|---------|-------------|
-| `@kagura/core` | Apache-2.0 | Test execution engine |
-| `@kagura/cli` | Apache-2.0 | Command-line interface |
+| `@kagura-run-run/core` | Apache-2.0 | Test execution engine |
+| `@kagura-run-run/cli` | Apache-2.0 | Command-line interface |
 | `apps/web` | Proprietary | Cloud platform (SaaS) |
 
 ---
 
-## @kagura/core (OPEN SOURCE)
+## @kagura-run-run/core (OPEN SOURCE)
 
 The core package is a **pure, environment-agnostic test execution engine**. It contains the fundamental logic for running AI-driven browser tests.
 
@@ -80,9 +80,9 @@ The core package **must not contain**:
 
 ---
 
-## @kagura/cli (OPEN SOURCE)
+## @kagura-run-run/cli (OPEN SOURCE)
 
-The CLI is a **thin command-line wrapper** over `@kagura/core` and the optional remote API.
+The CLI is a **thin command-line wrapper** over `@kagura-run-run/core` and the optional remote API.
 
 ### Responsibilities
 
@@ -92,7 +92,7 @@ The CLI is a **thin command-line wrapper** over `@kagura/core` and the optional 
   - Display progress and results
 - **Local Execution**
   - Instantiate CLI adapters (console output, local file storage)
-  - Call `@kagura/core` functions directly
+  - Call `@kagura-run/core` functions directly
 - **Remote API (Optional)**
   - Call `api.kagura.run` for cloud features when authenticated
   - Sync results to cloud dashboard
@@ -197,7 +197,7 @@ $ kagura run "Login and verify dashboard" --url https://myapp.com
                             │
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ @kagura/core executes test                                   │
+│ @kagura-run/core executes test                                   │
 │ Uses adapters for: events → console, screenshots → ./local   │
 └───────────────────────────┬──────────────────────────────────┘
                             │
@@ -227,7 +227,7 @@ POST /api/tests/{id}/run
                             │
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
-│ @kagura/core executes test                                   │
+│ @kagura-run/core executes test                                   │
 │ Uses adapters for: events → SSE, screenshots → S3            │
 └───────────────────────────┬──────────────────────────────────┘
                             │
@@ -266,9 +266,9 @@ Before any release, verify no forbidden imports exist:
 
 ```bash
 # Must return empty
-grep -r "from.*apps/web" packages/core/src/
-grep -r "from.*@kagura/cli" packages/core/src/
-grep -r "from.*apps/web" packages/cli/src/
+grep -r "from.*apps/web" packages-run/core/src/
+grep -r "from.*@kagura-run/cli" packages-run/core/src/
+grep -r "from.*apps/web" packages-run/cli/src/
 ```
 
 ---
@@ -292,7 +292,7 @@ grep -r "from.*apps/web" packages/cli/src/
              │                   │                   │
              ▼                   │                   ▼
     ┌────────────────┐           │          ┌────────────────┐
-    │ ○ @kagura/cli  │           │          │ ● apps/web     │
+    │ ○ @kagura-run/cli  │           │          │ ● apps/web     │
     │                │           │          │                │
     │  CLI Adapters  │           │          │  Web Adapters  │
     └───────┬────────┘           │          └───────┬────────┘
@@ -305,7 +305,7 @@ grep -r "from.*apps/web" packages/cli/src/
                             │         │
                             ▼         ▼
             ┌───────────────────────────────────────┐
-            │          ○ @kagura/core               │
+            │          ○ @kagura-run/core               │
             │                                       │
             │  ┌─────────────┐  ┌─────────────┐    │
             │  │   Agentic   │  │     DOM     │    │
@@ -366,9 +366,9 @@ grep -r "from.*apps/web" packages/cli/src/
 
 | File | Location | Extraction Status |
 |------|----------|-------------------|
-| `adapters.ts` | `packages/core/src/` | ✅ Done |
-| `types.ts` | `packages/core/src/` | ✅ Done |
-| `index.ts` | `packages/core/src/` | ✅ Done |
+| `adapters.ts` | `packages-run/core/src/` | ✅ Done |
+| `types.ts` | `packages-run/core/src/` | ✅ Done |
+| `index.ts` | `packages-run/core/src/` | ✅ Done |
 
 ---
 
@@ -376,7 +376,7 @@ grep -r "from.*apps/web" packages/cli/src/
 
 | Component | Status | Assignee | Notes |
 |-----------|--------|----------|-------|
-| Package structure | ✅ Done | — | `packages/core/`, `packages/cli/` |
+| Package structure | ✅ Done | — | `packages-run/core/`, `packages-run/cli/` |
 | Adapter interfaces | ✅ Done | — | `CoreAdapters` defined |
 | Type definitions | ✅ Done | — | `TestStep`, `AgentRunResult`, etc. |
 | `dom-extractor.ts` | 🔲 Pending | — | 100% portable, copy as-is |
@@ -400,7 +400,7 @@ grep -r "from.*apps/web" packages/cli/src/
 
 ### Semantic Versioning
 
-Both `@kagura/core` and `@kagura/cli` follow [Semantic Versioning](https://semver.org/):
+Both `@kagura-run/core` and `@kagura-run/cli` follow [Semantic Versioning](https://semver.org/):
 
 - **MAJOR** — Breaking API changes
 - **MINOR** — New features, backward compatible
@@ -408,17 +408,17 @@ Both `@kagura/core` and `@kagura/cli` follow [Semantic Versioning](https://semve
 
 ### Version Synchronization
 
-Since `@kagura/cli` depends on `@kagura/core`:
+Since `@kagura-run/cli` depends on `@kagura-run/core`:
 
 1. **Core changes first** — Always update and release core before CLI
-2. **Pin major versions** — CLI should pin `@kagura/core` to a major version range
+2. **Pin major versions** — CLI should pin `@kagura-run/core` to a major version range
 3. **Test compatibility** — Run CLI tests against new core versions before release
 
 ```json
-// packages/cli/package.json
+// packages-run/cli/package.json
 {
   "dependencies": {
-    "@kagura/core": "^0.1.0"  // Accept minor/patch updates
+    "@kagura-run/core": "^0.1.0"  // Accept minor/patch updates
   }
 }
 ```
@@ -436,15 +436,15 @@ When core introduces breaking changes:
 
 ```bash
 # 1. Update core version
-cd packages/core
+cd packages-run/core
 npm version minor  # or major/patch
 
 # 2. Build and test core
 npm run build && npm test
 
 # 3. Update CLI dependency
-cd ../cli
-npm install @kagura/core@latest
+cd ..-run/cli
+npm install @kagura-run/core@latest
 
 # 4. Update CLI version
 npm version minor
@@ -453,8 +453,8 @@ npm version minor
 npm run build && npm test
 
 # 6. Publish both
-cd ../core && npm publish
-cd ../cli && npm publish
+cd ..-run/core && npm publish
+cd ..-run/cli && npm publish
 ```
 
 ---
@@ -474,10 +474,10 @@ Ask these questions:
 
 | Question | If YES → | If NO → |
 |----------|----------|---------|
-| Does it require authentication? | web | core/cli |
-| Does it involve billing? | web | core/cli |
-| Does it need a database? | web | core/cli |
-| Is it test execution logic? | core | web/cli |
+| Does it require authentication? | web | core-run/cli |
+| Does it involve billing? | web | core-run/cli |
+| Does it need a database? | web | core-run/cli |
+| Is it test execution logic? | core | web-run/cli |
 | Is it UI/dashboard? | web | — |
 | Is it CLI-specific UX? | cli | — |
 

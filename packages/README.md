@@ -4,7 +4,7 @@ This directory contains the open-source packages extracted from Kagura AI.
 
 ## Packages
 
-### `@kagura/core`
+### `@kagura-run-run/core`
 
 The core test execution engine. Framework-agnostic, can be used by both the web app and CLI.
 
@@ -16,14 +16,14 @@ The core test execution engine. Framework-agnostic, can be used by both the web 
 
 **License:** Apache-2.0
 
-### `@kagura/cli`
+### `@kagura-run-run/cli`
 
 Command-line interface for running Kagura tests locally or in CI/CD pipelines.
 
 **Usage:**
 ```bash
 # Install globally
-npm install -g @kagura/cli
+npm install -g @kagura-run-run/cli
 
 # Run a test
 kagura run "Login and check dashboard" --url https://example.com
@@ -43,17 +43,17 @@ These packages are part of the Kagura AI monorepo. To develop locally:
 npm install
 
 # Build all packages
-npm run build -w packages/core -w packages/cli
+npm run build -w packages-run/core -w packages-run/cli
 
 # Run CLI in dev mode
-npm run dev -w packages/cli
+npm run dev -w packages-run/cli
 ```
 
 ## Architecture
 
 ```
 packages/
-├── core/           # @kagura/core - Test execution engine
+├── core/           # @kagura-run-run/core - Test execution engine
 │   ├── src/
 │   │   ├── adapters.ts      # Interface definitions
 │   │   ├── types.ts         # Shared types
@@ -62,7 +62,7 @@ packages/
 │   │   └── dom-extractor.ts     # (to be extracted)
 │   └── ...
 │
-├── cli/            # @kagura/cli - Command line interface
+├── cli/            # @kagura-run-run/cli - Command line interface
 │   ├── src/
 │   │   ├── index.ts         # CLI entry point
 │   │   ├── adapters.ts      # CLI-specific adapters

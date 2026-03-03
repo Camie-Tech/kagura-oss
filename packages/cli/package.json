@@ -1,5 +1,5 @@
 {
-  "name": "@kagura/cli",
+  "name": "@kagura-run/cli",
   "version": "0.1.0",
   "description": "Kagura AI - Open source CLI for running agentic tests",
   "bin": {
@@ -9,7 +9,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Camie-Tech/kagura-app.git",
+    "url": "https://github.com/Camie-Tech/kagura-oss.git",
     "directory": "packages/cli"
   },
   "keywords": [
@@ -35,7 +35,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@kagura/core": "workspace:*",
+    "@kagura-run/core": "workspace:*",
     "commander": "^12.0.0",
     "ora": "^8.0.0",
     "chalk": "^5.3.0"

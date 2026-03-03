@@ -1,5 +1,5 @@
 {
-  "name": "@kagura/core",
+  "name": "@kagura-run/core",
   "version": "0.1.0",
   "description": "Kagura AI - Open source agentic test execution engine",
   "main": "dist/index.js",
@@ -8,7 +8,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Camie-Tech/kagura-app.git",
+    "url": "https://github.com/Camie-Tech/kagura-oss.git",
     "directory": "packages/core"
   },
   "keywords": [

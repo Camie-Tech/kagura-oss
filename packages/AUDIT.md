@@ -1,8 +1,8 @@
-# Open Source Audit – @kagura/core Extraction
+# Open Source Audit – @kagura-run/core Extraction
 
 ## Summary
 
-This audit reviews files in **`kagura-app/apps/web/lib/`** that are planned for extraction into **`@kagura/core`** (see `packages/EXTRACTION_TODO.md`).
+This audit reviews files in **`kagura-app/apps/web/lib/`** that are planned for extraction into **`@kagura-run/core`** (see `packages/EXTRACTION_TODO.md`).
 
 Goal: ensure **no sensitive/internal/private or cloud-only logic** leaks into the open source package.
 
@@ -23,7 +23,7 @@ Scope focus:
 ### 1) Provider client is cloud/self-host aware + reads server env secrets
 - **File:** `provider-client.ts`
 - **Full path:** `kagura-app/apps/web/lib/services/provider-client.ts`
-- **Issue:** Reads `process.env.ANTHROPIC_API_KEY` and depends on deployment mode (cloud vs self_hosted). Also couples `@kagura/core` AI calls to Anthropic-specific client instantiation.
+- **Issue:** Reads `process.env.ANTHROPIC_API_KEY` and depends on deployment mode (cloud vs self_hosted). Also couples `@kagura-run/core` AI calls to Anthropic-specific client instantiation.
 - **Why risky:**
   - Introduces cloud-only assumptions into OSS core
   - Encourages embedding provider secrets into server env in a way that doesn’t generalize for CLI/other runtimes
@@ -140,7 +140,7 @@ The following files were reviewed and did **not** contain hardcoded secrets, int
    - Core should accept configuration and dependencies via adapters.
 
 2) **Ban imports from cloud code**
-   - Ensure `@kagura/core` has zero imports from `apps/web/**`.
+   - Ensure `@kagura-run/core` has zero imports from `apps/web/**`.
 
 3) **Add automated checks before publishing**
    - Secret scanning (e.g., GitHub secret scanning, gitleaks)

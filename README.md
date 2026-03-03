@@ -2,15 +2,15 @@
 
 This repository contains Kagura’s open source packages:
 
-- **`@kagura/core`** — the execution engine (adapters + portable runtime)
-- **`@kagura/cli`** — the command line interface
+- **`@kagura-run-run/core`** — the execution engine (adapters + portable runtime)
+- **`@kagura-run-run/cli`** — the command line interface
 
 > Kagura Cloud (the hosted SaaS) is proprietary and lives in a separate private repository.
 
 ## Packages
 
-- `packages/core` — `@kagura/core`
-- `packages/cli` — `@kagura/cli`
+- `packages-run/core` — `@kagura-run-run/core`
+- `packages-run/cli` — `@kagura-run-run/cli`
 
 ## Contributing
 
