@@ -1,6 +1,6 @@
 {
   "name": "@kagura-run/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Kagura AI - Open source agentic test execution engine",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

@@ -11,7 +11,9 @@ export * from './adapters'
 // Export types
 export * from './types'
 
-// Export runners (to be implemented)
+// Export modules
+export * from './dom-extractor'
+
+// Future exports (to be implemented)
 // export * from './agentic-runner'
 // export * from './exploration-runner'
-// export * from './dom-extractor'
