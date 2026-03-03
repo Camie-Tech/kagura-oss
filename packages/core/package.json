@@ -1,0 +1,46 @@
+{
+  "name": "@kagura/core",
+  "version": "0.1.0",
+  "description": "Kagura AI - Open source agentic test execution engine",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Camie-Tech/kagura-app.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "testing",
+    "e2e",
+    "playwright",
+    "ai",
+    "automation",
+    "qa"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "@anthropic-ai/sdk": "^0.20.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
