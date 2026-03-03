@@ -16,6 +16,8 @@ export * from './dom-extractor'
 export * from './utils/normalize-url'
 export * from './providers/provider-errors'
 export * from './ai/ai-parser'
+export * from './eval/test-evaluator'
+export * from './interaction/user-input-parser'
 
 // Future exports (to be implemented)
 // export * from './agentic-runner'
