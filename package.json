@@ -1,0 +1,13 @@
+{
+  "name": "kagura-oss",
+  "private": true,
+  "workspaces": [
+    "packages/core",
+    "packages/cli"
+  ],
+  "scripts": {
+    "build": "npm run build -w @kagura-run/core && npm run build -w @kagura-run/cli",
+    "typecheck": "npm run typecheck -w @kagura-run/core && npm run typecheck -w @kagura-run/cli",
+    "clean": "npm run clean -w @kagura-run/core && npm run clean -w @kagura-run/cli"
+  }
+}
