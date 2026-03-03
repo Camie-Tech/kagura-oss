@@ -33,7 +33,6 @@
   ],
   "dependencies": {
     "playwright": "^1.40.0",
-    "@anthropic-ai/sdk": "^0.20.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {

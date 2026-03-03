@@ -5,7 +5,6 @@
  * Instead, consumers implement these interfaces and inject them into core functions.
  */
 
-import type Anthropic from '@anthropic-ai/sdk'
 
 // ── Event Emitter ──────────────────────────────────────────────────────────
 
@@ -85,17 +84,31 @@ export interface BillingProvider {
 
 // ── AI Provider ────────────────────────────────────────────────────────────
 
+export type AIModelId = string
+
+export interface AICompletionRequest {
+  /** System instructions for the model. */
+  system: string
+  /** User prompt content. */
+  prompt: string
+  /** Model identifier (provider-specific). */
+  model?: AIModelId
+  /** Maximum output tokens. */
+  maxTokens?: number
+  /** Temperature / creativity. */
+  temperature?: number
+}
+
 export interface AIProvider {
   /**
-   * Get an Anthropic client for the given user.
-   * In cloud mode: uses server API key.
-   * In self-hosted mode: uses user's connected provider.
-   * In CLI mode: uses ANTHROPIC_API_KEY env var.
+   * Provider-agnostic text completion.
+   *
+   * Core must not instantiate provider SDK clients or read env vars.
+   * Cloud/CLI implement this adapter using their preferred provider.
    */
-  getAnthropicClient(userId?: string | null): Anthropic
-
-  // Future: getOpenAIClient()
+  completeText(request: AICompletionRequest, userId?: string | null): Promise<string>
 }
+
 
 // ── Combined Adapters ──────────────────────────────────────────────────────
 
