@@ -13,6 +13,8 @@ export * from './types'
 
 // Export modules
 export * from './dom-extractor'
+export * from './utils/normalize-url'
+export * from './providers/provider-errors'
 
 // Future exports (to be implemented)
 // export * from './agentic-runner'
