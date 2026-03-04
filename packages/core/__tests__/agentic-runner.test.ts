@@ -21,7 +21,7 @@ function makeAdapters() {
         }),
       },
       credentials: {
-        getForUrl: async () => null,
+        getForUrl: async () => ({ email: 'test@example.com', password: 'secret' }),
       },
       state: {
         save: async (_runId: string, state: any) => {

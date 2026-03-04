@@ -15,7 +15,7 @@ import { createEmptyState, touchState, type AgentExecutionState } from '../state
 import { parseWithPageAnalysis, type PlaywrightAction } from '../ai/ai-parser'
 import { executeTest, type TestExecutionResult, type RunnerTestConfig } from '../runner/test-runner'
 
-export type AgenticRunStatus = 'completed' | 'failed'
+export type AgenticRunStatus = 'completed' | 'failed' | 'paused'
 
 export type AgenticRunResult = {
   runId: string
@@ -25,6 +25,11 @@ export type AgenticRunResult = {
     totalSteps: number
     passedSteps: number
     failedSteps: number
+  }
+  /** Present when status is paused (e.g., missing credentials). */
+  paused?: {
+    reason: 'missing_credentials' | 'needs_user_input'
+    message: string
   }
   execution: TestExecutionResult
   state: AgentExecutionState
@@ -95,6 +100,59 @@ export async function runAgenticTest(params: {
   state = touchState({ ...state, currentUrl: state.currentUrl || targetUrl })
   await adapters.state.save(runId, state)
 
+  // Credentials: attempt to fetch from adapter. If missing, pause.
+  const creds = await adapters.credentials.getForUrl(targetUrl, userId ?? null).catch(() => null)
+  if (!creds) {
+    const message = `Missing credentials for ${targetUrl}. Provide credentials to continue.`
+
+    adapters.events.emit({
+      type: 'run',
+      timestamp: Date.now(),
+      data: { phase: 'paused', runId, reason: 'missing_credentials', message },
+    })
+
+    state = touchState({
+      ...state,
+      metadata: {
+        ...(state.metadata || {}),
+        paused: { reason: 'missing_credentials', targetUrl },
+      },
+    })
+    await adapters.state.save(runId, state)
+
+    const now = new Date()
+    const execution: TestExecutionResult = {
+      success: false,
+      status: 'error',
+      steps: [],
+      screenshots: [],
+      errorMessage: message,
+      startedAt: now,
+      completedAt: now,
+      durationMs: 0,
+      consoleLogs: [],
+    }
+
+    return {
+      runId,
+      status: 'paused',
+      paused: { reason: 'missing_credentials', message },
+      summary: { totalSteps: 0, passedSteps: 0, failedSteps: 0 },
+      execution,
+      state,
+    }
+  }
+
+  // Stash credential presence in state (never store password itself)
+  state = touchState({
+    ...state,
+    metadata: {
+      ...(state.metadata || {}),
+      credentials: { present: true, email: (creds as any).email || null },
+    },
+  })
+  await adapters.state.save(runId, state)
+
   let lastError: string | null = null
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
@@ -120,7 +178,7 @@ export async function runAgenticTest(params: {
       // 2) Plan
       const plan = await parseWithPageAnalysis({
         adapters,
-        description,
+        description: `${description}\n\nLogin credentials are available for this site. Use them if a login step is required.`,
         targetUrl,
         pageAnalysis,
         userId: userId ?? null,
