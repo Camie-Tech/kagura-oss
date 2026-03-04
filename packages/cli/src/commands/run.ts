@@ -2,11 +2,11 @@ import crypto from 'node:crypto'
 
 import { runAgenticTest, type CoreAdapters } from '@kagura-run/core'
 
-import { createConsoleEventEmitter } from '../adapters/console-events'
-import { createFsScreenshotStorage } from '../adapters/fs-screenshots'
-import { createFsStateStorage } from '../adapters/fs-state'
-import { createFileCredentialProvider } from '../adapters/file-credentials'
-import { createAnthropicAiProvider } from '../adapters/anthropic-ai'
+import { createConsoleEventEmitter } from '../adapters/console-events.js'
+import { createFsScreenshotStorage } from '../adapters/fs-screenshots.js'
+import { createFsStateStorage } from '../adapters/fs-state.js'
+import { createFileCredentialProvider } from '../adapters/file-credentials.js'
+import { createAnthropicAiProvider } from '../adapters/anthropic-ai.js'
 
 export async function runCommand(args: { url: string; desc: string }): Promise<number> {
   const runId = `run_${crypto.randomUUID()}`
@@ -17,7 +17,8 @@ export async function runCommand(args: { url: string; desc: string }): Promise<n
     credentials: createFileCredentialProvider(),
     state: createFsStateStorage(),
     interaction: {
-      askUser: async () => ({ kind: 'skip' }),
+      askUser: async () => '',
+      isAborted: () => false,
     },
     billing: null,
     ai: createAnthropicAiProvider(),

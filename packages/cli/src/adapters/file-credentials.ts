@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 
-import type { CredentialProvider } from '@kagura-run/core'
-import { kaguraCredentialsPath } from '../config/paths'
+import type { CredentialProvider, SavedCredential } from '@kagura-run/core'
+import { kaguraCredentialsPath } from '../config/paths.js'
 
 // Minimal schema:
 // {
@@ -9,27 +9,43 @@ import { kaguraCredentialsPath } from '../config/paths'
 // }
 export function createFileCredentialProvider(): CredentialProvider {
   return {
-    async getForUrl(targetUrl: string) {
+    async getForUrl(_userId: string | null, targetUrl: string): Promise<SavedCredential[]> {
       try {
         const raw = await fs.readFile(kaguraCredentialsPath(), 'utf8')
         const obj = JSON.parse(raw)
 
+        let values: any = null
         if (obj && typeof obj === 'object') {
           // exact match
-          if (obj[targetUrl]) return obj[targetUrl]
+          if (obj[targetUrl]) values = obj[targetUrl]
 
           // try hostname match
-          try {
-            const hostname = new URL(targetUrl).hostname
-            if (obj[hostname]) return obj[hostname]
-          } catch {
-            // ignore
+          if (!values) {
+            try {
+              const hostname = new URL(targetUrl).hostname
+              if (obj[hostname]) values = obj[hostname]
+            } catch {
+              // ignore
+            }
           }
         }
-        return null
+
+        if (!values || typeof values !== 'object') return []
+
+        return [
+          {
+            id: `file:${targetUrl}`,
+            label: 'file',
+            values: values as Record<string, string>,
+          },
+        ]
       } catch {
-        return null
+        return []
       }
+    },
+
+    async recordUsage() {
+      // no-op for file provider
     },
   }
 }

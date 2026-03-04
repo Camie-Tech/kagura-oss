@@ -44,7 +44,7 @@ export interface CredentialProvider {
 
 // ── State Storage ──────────────────────────────────────────────────────────
 
-import type { AgentExecutionState } from './state'
+import type { AgentExecutionState } from './state.js'
 
 export interface StateStorage {
   /**

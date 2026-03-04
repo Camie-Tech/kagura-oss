@@ -6,7 +6,7 @@
  * - Uses CoreAdapters.ai.completeText().
  */
 
-import type { CoreAdapters } from '../adapters'
+import type { CoreAdapters } from '../adapters.js'
 
 export interface ParsedUserInput {
   intent: 'provide_data' | 'skip' | 'generate_test_data' | 'guidance' | 'choose_option'

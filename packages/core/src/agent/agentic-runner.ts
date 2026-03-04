@@ -8,12 +8,12 @@
  */
 
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
-import type { CoreAdapters } from '../adapters'
-import { extractPageAnalysis, type PageAnalysis } from '../dom-extractor'
-import { normalizeProviderError, type DeploymentMode } from '../providers/provider-errors'
-import { createEmptyState, touchState, type AgentExecutionState } from '../state'
-import { parseWithPageAnalysis, type PlaywrightAction } from '../ai/ai-parser'
-import { executeTest, type TestExecutionResult, type RunnerTestConfig } from '../runner/test-runner'
+import type { CoreAdapters } from '../adapters.js'
+import { extractPageAnalysis, type PageAnalysis } from '../dom-extractor.js'
+import { normalizeProviderError, type DeploymentMode } from '../providers/provider-errors.js'
+import { createEmptyState, touchState, type AgentExecutionState } from '../state.js'
+import { parseWithPageAnalysis, type PlaywrightAction } from '../ai/ai-parser.js'
+import { executeTest, type TestExecutionResult, type RunnerTestConfig } from '../runner/test-runner.js'
 
 export type AgenticRunStatus = 'completed' | 'failed' | 'paused'
 
@@ -84,7 +84,7 @@ export async function runAgenticTest(params: {
   const exec = params._executor ?? executeTest
 
   adapters.events.emit({
-    type: 'run',
+    type: 'status',
     timestamp: Date.now(),
     data: { phase: 'started', runId, targetUrl, description },
   })
@@ -101,12 +101,12 @@ export async function runAgenticTest(params: {
   await adapters.state.save(runId, state)
 
   // Credentials: attempt to fetch from adapter. If missing, pause.
-  const creds = await adapters.credentials.getForUrl(targetUrl, userId ?? null).catch(() => null)
-  if (!creds) {
+  const creds = await adapters.credentials.getForUrl(userId ?? null, targetUrl).catch(() => null)
+  if (!creds || creds.length === 0) {
     const message = `Missing credentials for ${targetUrl}. Provide credentials to continue.`
 
     adapters.events.emit({
-      type: 'run',
+      type: 'pause',
       timestamp: Date.now(),
       data: { phase: 'paused', runId, reason: 'missing_credentials', message },
     })
@@ -144,11 +144,12 @@ export async function runAgenticTest(params: {
   }
 
   // Stash credential presence in state (never store password itself)
+  const primaryCred = creds[0]
   state = touchState({
     ...state,
     metadata: {
       ...(state.metadata || {}),
-      credentials: { present: true, email: (creds as any).email || null },
+      credentials: { present: true, email: primaryCred?.values?.email || null },
     },
   })
   await adapters.state.save(runId, state)
@@ -157,14 +158,14 @@ export async function runAgenticTest(params: {
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
     adapters.events.emit({
-      type: 'agentic',
+      type: 'status',
       timestamp: Date.now(),
       data: { phase: 'iteration_started', runId, iteration, maxIterations },
     })
 
     // Optional billing gate
-    if (adapters.billing) {
-      const ok = await adapters.billing.hasCredits(userId ?? null)
+    if (adapters.billing && userId) {
+      const ok = await adapters.billing.hasCredits(userId)
       if (!ok) {
         lastError = 'Insufficient credits'
         break
@@ -191,7 +192,7 @@ export async function runAgenticTest(params: {
       const actions = plan.actions as PlaywrightAction[]
 
       adapters.events.emit({
-        type: 'agentic',
+        type: 'log',
         timestamp: Date.now(),
         data: { phase: 'plan_generated', runId, iteration, actionsCount: actions.length },
       })
@@ -212,9 +213,9 @@ export async function runAgenticTest(params: {
         config: config.runnerConfig,
       })
 
-      // Optional billing deduct based on something simple (later: token/step based)
-      if (adapters.billing) {
-        await adapters.billing.deductCredits(userId ?? null, { reason: 'agentic_run', units: 1 })
+      // Optional billing deduct (simple: 1 unit per run)
+      if (adapters.billing && userId) {
+        await adapters.billing.deduct(userId, 1)
       }
 
       const failedSteps = execution.steps.filter((s) => s.status === 'failed').length
@@ -230,7 +231,7 @@ export async function runAgenticTest(params: {
       await adapters.state.save(runId, state)
 
       adapters.events.emit({
-        type: 'run',
+        type: 'completed',
         timestamp: Date.now(),
         data: { phase: 'completed', runId, status: execution.status, durationMs: execution.durationMs },
       })
@@ -269,7 +270,7 @@ export async function runAgenticTest(params: {
   }
 
   adapters.events.emit({
-    type: 'run',
+    type: 'completed',
     timestamp: Date.now(),
     data: { phase: 'completed', runId, status: 'failed', error: lastError || 'Unknown error' },
   })

@@ -11,9 +11,9 @@
  */
 
 import { chromium, firefox, webkit, type Browser, type BrowserContext, type Page } from 'playwright'
-import type { CoreAdapters } from '../adapters'
-import type { TestStep } from '../types'
-import type { PlaywrightAction } from '../ai/ai-parser'
+import type { CoreAdapters } from '../adapters.js'
+import type { TestStep } from '../types.js'
+import type { PlaywrightAction } from '../ai/ai-parser.js'
 
 export type BrowserType = 'chromium' | 'firefox' | 'webkit'
 export type InputMode = 'ask_user' | 'ai_generated'

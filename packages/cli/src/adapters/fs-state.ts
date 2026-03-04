@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import type { StateStorage, AgentExecutionState } from '@kagura-run/core'
-import { kaguraStateDir } from '../config/paths'
+import { kaguraStateDir } from '../config/paths.js'
 
 export function createFsStateStorage(): StateStorage {
   return {

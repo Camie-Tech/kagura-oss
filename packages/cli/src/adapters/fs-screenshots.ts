@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 import type { ScreenshotStorage } from '@kagura-run/core'
-import { kaguraScreenshotsDir } from '../config/paths'
+import { kaguraScreenshotsDir } from '../config/paths.js'
 
 export function createFsScreenshotStorage(): ScreenshotStorage {
   return {

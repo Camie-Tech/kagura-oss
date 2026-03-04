@@ -14,7 +14,8 @@ describe('runAgenticTest pause behavior', () => {
           save: async () => ({ url: 'mock://s' }),
         },
         credentials: {
-          getForUrl: async () => null,
+          getForUrl: async () => [],
+          recordUsage: async () => {},
         },
         state: {
           save: async (_id: string, s: any) => saves.push(s),
@@ -22,7 +23,8 @@ describe('runAgenticTest pause behavior', () => {
           delete: async () => {},
         },
         interaction: {
-          askUser: async () => ({ kind: 'skip' }),
+          askUser: async () => '',
+          isAborted: () => false,
         },
         billing: null,
         ai: {

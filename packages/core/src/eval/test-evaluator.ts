@@ -7,7 +7,7 @@
  * - Uses CoreAdapters.ai.completeText().
  */
 
-import type { CoreAdapters } from '../adapters'
+import type { CoreAdapters } from '../adapters.js'
 
 export type TestVerdict = 'passed' | 'failed' | 'inconclusive'
 

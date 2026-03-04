@@ -7,32 +7,41 @@ export function createConsoleEventEmitter(): EventEmitter {
       const data = event?.data
 
       if (type === 'step') {
-        const phase = data?.phase
-        const idx = data?.stepIndex
-        const total = data?.totalSteps
-        const desc = data?.description
+        const phase = data?.phase as string | undefined
+        const idx = (data?.stepIndex as number | undefined) ?? 0
+        const total = (data?.totalSteps as number | undefined) ?? 0
+        const desc = data?.description as string | undefined
         if (phase === 'started') {
           // eslint-disable-next-line no-console
-          console.log(`[kagura] step ${idx + 1}/${total} started: ${desc}`)
+          console.log(`[kagura] step ${idx + 1}/${total} started: ${desc || ''}`)
         } else if (phase === 'completed') {
           // eslint-disable-next-line no-console
-          console.log(`[kagura] step ${idx + 1}/${total} completed`) 
+          console.log(`[kagura] step ${idx + 1}/${total} completed`)
         }
         return
       }
 
-      if (type === 'run') {
-        const phase = data?.phase
+      if (type === 'status') {
+        const phase = data?.phase as string | undefined
         if (phase === 'started') {
           // eslint-disable-next-line no-console
-          console.log(`[kagura] run started: ${data?.runId}`)
-        } else if (phase === 'paused') {
+          console.log(`[kagura] run started: ${String(data?.runId || '')}`)
+        } else if (phase === 'iteration_started') {
           // eslint-disable-next-line no-console
-          console.log(`[kagura] run paused: ${data?.message}`)
-        } else if (phase === 'completed') {
-          // eslint-disable-next-line no-console
-          console.log(`[kagura] run completed: ${data?.status || ''}`)
+          console.log(`[kagura] iteration started`) 
         }
+        return
+      }
+
+      if (type === 'pause') {
+        // eslint-disable-next-line no-console
+        console.log(`[kagura] run paused: ${String(data?.message || '')}`)
+        return
+      }
+
+      if (type === 'completed') {
+        // eslint-disable-next-line no-console
+        console.log(`[kagura] run completed: ${String(data?.status || '')}`)
         return
       }
 

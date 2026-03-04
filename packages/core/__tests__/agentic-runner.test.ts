@@ -21,7 +21,12 @@ function makeAdapters() {
         }),
       },
       credentials: {
-        getForUrl: async () => ({ email: 'test@example.com', password: 'secret' }),
+        getForUrl: async () => ([{ id: 'cred1', label: 'default', values: { email: 'test@example.com', password: 'secret' } }]),
+        recordUsage: async () => {},
+      },
+      interaction: {
+        askUser: async () => '',
+        isAborted: () => false,
       },
       state: {
         save: async (_runId: string, state: any) => {
@@ -29,9 +34,6 @@ function makeAdapters() {
         },
         load: async () => null,
         delete: async () => {},
-      },
-      interaction: {
-        askUser: async () => ({ kind: 'skip' }),
       },
       billing: null,
       ai: {

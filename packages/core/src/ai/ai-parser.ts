@@ -8,9 +8,9 @@
  * - Uses CoreAdapters.ai.completeText().
  */
 
-import type { CoreAdapters } from '../adapters'
-import type { PageAnalysis } from '../dom-extractor'
-import { summarizePageAnalysis } from '../dom-extractor'
+import type { CoreAdapters } from '../adapters.js'
+import type { PageAnalysis } from '../dom-extractor.js'
+import { summarizePageAnalysis } from '../dom-extractor.js'
 
 export interface PlaywrightAction {
   action: 'navigate' | 'click' | 'type' | 'wait' | 'assert' | 'screenshot' | 'scroll' | 'hover' | 'select'

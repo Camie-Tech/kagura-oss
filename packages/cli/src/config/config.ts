@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises'
-import path from 'node:path'
 
-import { kaguraConfigPath, kaguraHomeDir } from './paths'
+import { kaguraConfigPath, kaguraHomeDir } from './paths.js'
 
 export type CliConfig = {
   apiUrl?: string

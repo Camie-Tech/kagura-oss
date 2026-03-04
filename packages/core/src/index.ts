@@ -6,21 +6,21 @@
  */
 
 // Export adapter interfaces
-export * from './adapters'
+export * from './adapters.js'
 
 // Export types
-export * from './types'
+export * from './types.js'
 
 // Export modules
-export * from './dom-extractor'
-export * from './utils/normalize-url'
-export * from './providers/provider-errors'
-export * from './ai/ai-parser'
-export * from './eval/test-evaluator'
-export * from './interaction/user-input-parser'
-export * from './runner/test-runner'
-export * from './state'
-export * from './agent/agentic-runner'
+export * from './dom-extractor.js'
+export * from './utils/normalize-url.js'
+export * from './providers/provider-errors.js'
+export * from './ai/ai-parser.js'
+export * from './eval/test-evaluator.js'
+export * from './interaction/user-input-parser.js'
+export * from './runner/test-runner.js'
+export * from './state.js'
+export * from './agent/agentic-runner.js'
 
 // Future exports (to be implemented)
 // export * from './agentic-runner'

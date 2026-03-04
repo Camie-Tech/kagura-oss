@@ -7,7 +7,7 @@
  * - No cloud/DB assumptions
  */
 
-import type { TestStep } from './types'
+import type { TestStep } from './types.js'
 
 export type JsonPrimitive = string | number | boolean | null
 export type JsonValue = JsonPrimitive | JsonObject | JsonValue[]

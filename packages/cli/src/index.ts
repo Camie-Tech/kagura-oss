@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { runCommand } from './commands/run'
+import { runCommand } from './commands/run.js'
 
 function usage() {
   // eslint-disable-next-line no-console
