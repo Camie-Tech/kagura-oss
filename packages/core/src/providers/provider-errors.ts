@@ -12,7 +12,7 @@ export type NormalizedProviderError = {
  * Parse deployment mode from a raw string.
  *
  * NOTE: This function is pure and does NOT read environment variables.
- * Cloud apps may call: parseDeploymentMode(process.env.DEPLOYMENT_MODE)
+ * Cloud apps may parse a deployment mode string and pass it into core.
  */
 export function parseDeploymentMode(raw?: string | null): DeploymentMode {
   const v = String(raw ?? 'cloud').toLowerCase().trim()

@@ -1,0 +1,24 @@
+name: OSS Guardrails
+
+on:
+  pull_request:
+    paths:
+      - 'packages/core/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+  push:
+    branches:
+      - main
+      - feature/core-extraction
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run OSS guardrails
+        run: |
+          chmod +x scripts/oss-guardrails.sh
+          ./scripts/oss-guardrails.sh
