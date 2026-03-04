@@ -44,18 +44,23 @@ export interface CredentialProvider {
 
 // ── State Storage ──────────────────────────────────────────────────────────
 
-export interface ExecutionState {
-  conversationHistory: unknown[]
-  currentUrl: string
-  stepsCompleted: unknown[] // TestStep[]
-  screenshotsTaken: string[]
-  // Additional resumable state
-  [key: string]: unknown
-}
+import type { AgentExecutionState } from './state'
 
 export interface StateStorage {
-  save(runId: string, state: ExecutionState): Promise<void>
-  load(runId: string): Promise<ExecutionState | null>
+  /**
+   * Persist the full state snapshot for this run.
+   * Implementations should overwrite any previous snapshot.
+   */
+  save(runId: string, state: AgentExecutionState): Promise<void>
+
+  /**
+   * Load the last saved state snapshot for this run.
+   */
+  load(runId: string): Promise<AgentExecutionState | null>
+
+  /**
+   * Delete any stored state for this run.
+   */
   delete(runId: string): Promise<void>
 }
 
