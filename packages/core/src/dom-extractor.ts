@@ -2,6 +2,11 @@
  * DOM Extractor Service
  * Extracts interactive elements from the current page via Playwright.
  * Returns a structured PageAnalysis object for AI consumption.
+ *
+ * NOTE: The page.evaluate() call uses a string template instead of a function
+ * to avoid esbuild's __name() wrapper injection (keepNames), which would cause
+ * "ReferenceError: __name is not defined" when the function is stringified
+ * and executed in the browser context.
  */
 
 import type { Page } from 'playwright'
@@ -43,6 +48,156 @@ export interface PageAnalysis {
   modals: boolean
 }
 
+// Browser-side extraction script as a string to avoid esbuild __name injection
+const EXTRACTION_SCRIPT = `
+(() => {
+  // Helper: get visible text, trimmed
+  const getText = (el) => (el.textContent || '').trim().slice(0, 200);
+
+  // Helper: find associated label for an input
+  const getLabel = (input) => {
+    // Check for aria-label
+    const ariaLabel = input.getAttribute('aria-label');
+    if (ariaLabel) return ariaLabel;
+
+    // Check for associated <label>
+    if (input.id) {
+      const label = document.querySelector('label[for="' + input.id + '"]');
+      if (label) return getText(label);
+    }
+
+    // Check parent label
+    const parentLabel = input.closest('label');
+    if (parentLabel) {
+      const clone = parentLabel.cloneNode(true);
+      // Remove the input itself from the clone to get just the label text
+      const inputs = clone.querySelectorAll('input, textarea, select');
+      inputs.forEach((i) => i.remove());
+      return (clone.textContent || '').trim().slice(0, 200);
+    }
+
+    // Check aria-labelledby
+    const labelledBy = input.getAttribute('aria-labelledby');
+    if (labelledBy) {
+      const labelEl = document.getElementById(labelledBy);
+      if (labelEl) return getText(labelEl);
+    }
+
+    return '';
+  };
+
+  // Extract forms
+  const forms = [];
+  document.querySelectorAll('form').forEach((form) => {
+    const inputs = [];
+    form.querySelectorAll('input, textarea, select').forEach((el) => {
+      const input = el;
+      if (input.type === 'hidden') return;
+      inputs.push({
+        type: input.type || input.tagName.toLowerCase(),
+        name: input.name || '',
+        placeholder: input.placeholder || '',
+        label: getLabel(input),
+        required: input.required || false,
+        value: input.type === 'password' ? '***' : (input.value || '').slice(0, 100),
+      });
+    });
+
+    const buttons = [];
+    form.querySelectorAll('button, input[type="submit"], input[type="button"]').forEach((el) => {
+      const btn = el;
+      buttons.push({
+        text: getText(btn) || btn.getAttribute('value') || '',
+        type: btn.type || 'button',
+      });
+    });
+
+    forms.push({
+      action: form.action || '',
+      method: (form.method || 'GET').toUpperCase(),
+      inputs,
+      buttons,
+    });
+  });
+
+  // Extract standalone buttons (not inside forms)
+  const standaloneButtons = [];
+  document.querySelectorAll('button, [role="button"]').forEach((el) => {
+    if (el.closest('form')) return;
+    const text = getText(el);
+    const ariaLabel = el.getAttribute('aria-label') || '';
+    if (text || ariaLabel) {
+      standaloneButtons.push({ text, ariaLabel });
+    }
+  });
+
+  // Extract links - top 20 most prominent (with visible text)
+  const allLinks = [];
+  document.querySelectorAll('a[href]').forEach((el) => {
+    const link = el;
+    const text = getText(link);
+    if (text && link.href) {
+      allLinks.push({ text: text.slice(0, 100), href: link.href });
+    }
+  });
+  const links = allLinks.slice(0, 20);
+
+  // Extract headings h1-h3
+  const headings = [];
+  document.querySelectorAll('h1, h2, h3').forEach((el) => {
+    const text = getText(el);
+    if (text) headings.push(text.slice(0, 200));
+  });
+
+  // Detect error messages
+  const errors = [];
+  const errorSelectors = [
+    '[role="alert"]',
+    '.error', '.error-message', '.form-error',
+    '.alert-danger', '.alert-error',
+    '[class*="error"]', '[class*="Error"]',
+    '[data-testid*="error"]',
+  ];
+  errorSelectors.forEach((sel) => {
+    try {
+      document.querySelectorAll(sel).forEach((el) => {
+        const text = getText(el);
+        if (text && text.length > 2) {
+          errors.push(text.slice(0, 300));
+        }
+      });
+    } catch {
+      // Invalid selector, skip
+    }
+  });
+  // Deduplicate errors
+  const uniqueErrors = Array.from(new Set(errors)).slice(0, 5);
+
+  // Detect modals/dialogs
+  let modals = false;
+  // Check for <dialog> elements that are open
+  document.querySelectorAll('dialog[open]').forEach(() => { modals = true; });
+  // Check for common modal patterns
+  document.querySelectorAll('[role="dialog"], [aria-modal="true"]').forEach((el) => {
+    const style = window.getComputedStyle(el);
+    if (style.display !== 'none' && style.visibility !== 'hidden') {
+      modals = true;
+    }
+  });
+
+  return {
+    url: window.location.href,
+    title: document.title,
+    forms,
+    links,
+    buttons: standaloneButtons.slice(0, 20),
+    headings: headings.slice(0, 10),
+    errors: uniqueErrors,
+    modals,
+  };
+})()
+`
+
 /**
  * Extract interactive elements from the current page.
  * Waits for network idle before extraction.
@@ -52,160 +207,7 @@ export async function extractPageAnalysis(page: Page): Promise<PageAnalysis> {
   await page.waitForLoadState('domcontentloaded').catch(() => {})
   await page.waitForTimeout(500)
 
-  const analysis = await page.evaluate(() => {
-    // Helper: get visible text, trimmed
-    function getText(el: Element): string {
-      return (el.textContent || '').trim().slice(0, 200)
-    }
-
-    // Helper: find associated label for an input
-    function getLabel(input: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): string {
-      // Check for aria-label
-      const ariaLabel = input.getAttribute('aria-label')
-      if (ariaLabel) return ariaLabel
-
-      // Check for associated <label>
-      if (input.id) {
-        const label = document.querySelector(`label[for="${input.id}"]`)
-        if (label) return getText(label)
-      }
-
-      // Check parent label
-      const parentLabel = input.closest('label')
-      if (parentLabel) {
-        const clone = parentLabel.cloneNode(true) as HTMLElement
-        // Remove the input itself from the clone to get just the label text
-        const inputs = clone.querySelectorAll('input, textarea, select')
-        inputs.forEach((i: Element) => i.remove())
-        return clone.textContent?.trim().slice(0, 200) || ''
-      }
-
-      // Check aria-labelledby
-      const labelledBy = input.getAttribute('aria-labelledby')
-      if (labelledBy) {
-        const labelEl = document.getElementById(labelledBy)
-        if (labelEl) return getText(labelEl)
-      }
-
-      return ''
-    }
-
-    // Extract forms
-    const forms: Array<{
-      action: string
-      method: string
-      inputs: Array<{ type: string; name: string; placeholder: string; label: string; required: boolean; value: string }>
-      buttons: Array<{ text: string; type: string }>
-    }> = []
-
-    document.querySelectorAll('form').forEach((form: HTMLFormElement) => {
-      const inputs: typeof forms[0]['inputs'] = []
-      form.querySelectorAll('input, textarea, select').forEach((el: Element) => {
-        const input = el as HTMLInputElement
-        if (input.type === 'hidden') return
-        inputs.push({
-          type: input.type || input.tagName.toLowerCase(),
-          name: input.name || '',
-          placeholder: input.placeholder || '',
-          label: getLabel(input),
-          required: input.required || false,
-          value: input.type === 'password' ? '***' : (input.value || '').slice(0, 100),
-        })
-      })
-
-      const buttons: typeof forms[0]['buttons'] = []
-      form.querySelectorAll('button, input[type="submit"], input[type="button"]').forEach((el: Element) => {
-        const btn = el as HTMLButtonElement
-        buttons.push({
-          text: getText(btn) || btn.getAttribute('value') || '',
-          type: btn.type || 'button',
-        })
-      })
-
-      forms.push({
-        action: form.action || '',
-        method: (form.method || 'GET').toUpperCase(),
-        inputs,
-        buttons,
-      })
-    })
-
-    // Extract standalone buttons (not inside forms)
-    const standaloneButtons: Array<{ text: string; ariaLabel: string }> = []
-    document.querySelectorAll('button, [role="button"]').forEach((el: Element) => {
-      if (el.closest('form')) return
-      const text = getText(el)
-      const ariaLabel = el.getAttribute('aria-label') || ''
-      if (text || ariaLabel) {
-        standaloneButtons.push({ text, ariaLabel })
-      }
-    })
-
-    // Extract links - top 20 most prominent (with visible text)
-    const allLinks: Array<{ text: string; href: string }> = []
-    document.querySelectorAll('a[href]').forEach((el: Element) => {
-      const link = el as HTMLAnchorElement
-      const text = getText(link)
-      if (text && link.href) {
-        allLinks.push({ text: text.slice(0, 100), href: link.href })
-      }
-    })
-    const links = allLinks.slice(0, 20)
-
-    // Extract headings h1-h3
-    const headings: string[] = []
-    document.querySelectorAll('h1, h2, h3').forEach((el: Element) => {
-      const text = getText(el)
-      if (text) headings.push(text.slice(0, 200))
-    })
-
-    // Detect error messages
-    const errors: string[] = []
-    const errorSelectors = [
-      '[role="alert"]',
-      '.error', '.error-message', '.form-error',
-      '.alert-danger', '.alert-error',
-      '[class*="error"]', '[class*="Error"]',
-      '[data-testid*="error"]',
-    ]
-    errorSelectors.forEach((sel: string) => {
-      try {
-        document.querySelectorAll(sel).forEach((el: Element) => {
-          const text = getText(el)
-          if (text && text.length > 2) {
-            errors.push(text.slice(0, 300))
-          }
-        })
-      } catch {
-        // Invalid selector, skip
-      }
-    })
-    // Deduplicate errors
-    const uniqueErrors = Array.from(new Set(errors)).slice(0, 5)
-
-    // Detect modals/dialogs
-    let modals = false
-    // Check for <dialog> elements that are open
-    document.querySelectorAll('dialog[open]').forEach(() => { modals = true })
-    // Check for common modal patterns
-    document.querySelectorAll('[role="dialog"], [aria-modal="true"]').forEach((el: Element) => {
-      const style = window.getComputedStyle(el)
-      if (style.display !== 'none' && style.visibility !== 'hidden') {
-        modals = true
-      }
-    })
-
-    return {
-      url: window.location.href,
-      title: document.title,
-      forms,
-      links,
-      buttons: standaloneButtons.slice(0, 20),
-      headings: headings.slice(0, 10),
-      errors: uniqueErrors,
-      modals,
-    }
-  })
+  const analysis = await page.evaluate(EXTRACTION_SCRIPT)
 
   return analysis as PageAnalysis
 }
