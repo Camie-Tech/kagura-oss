@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "description": "Kagura AI - Open source CLI for running agentic tests",
   "bin": {
-    "kagura": "./dist/index.js"
+    "kagura": "dist/index.js"
   },
   "type": "module",
   "license": "Apache-2.0",
