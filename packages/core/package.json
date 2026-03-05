@@ -1,6 +1,6 @@
 {
   "name": "@kagura-run/core",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Kagura AI - Open source agentic test execution engine",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,9 +22,10 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts"
+    "lint": "eslint src --ext .ts",
+    "prepack": "npm run clean && npm run build"
   },
   "files": [
     "dist",
