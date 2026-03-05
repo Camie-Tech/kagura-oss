@@ -21,6 +21,7 @@ export * from './interaction/user-input-parser.js'
 export * from './runner/test-runner.js'
 export * from './state.js'
 export * from './agent/agentic-runner.js'
+export * from './agent/live-agent-runner.js'
 
 // Future exports (to be implemented)
 // export * from './agentic-runner'
