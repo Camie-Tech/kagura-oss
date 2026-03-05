@@ -22,6 +22,7 @@ export * from './runner/test-runner.js'
 export * from './state.js'
 export * from './agent/agentic-runner.js'
 export * from './agent/live-agent-runner.js'
+export * from './exploration/exploration-engine.js'
 
 // Future exports (to be implemented)
 // export * from './agentic-runner'
