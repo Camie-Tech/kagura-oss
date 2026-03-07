@@ -7,42 +7,61 @@
  * (DB, Stripe, hosted storage). Cloud/CLI provide adapters.
  */
 
-import { chromium, type Browser, type BrowserContext, type Page } from 'playwright'
-import type { CoreAdapters } from '../adapters.js'
-import { extractPageAnalysis, type PageAnalysis } from '../dom-extractor.js'
-import { normalizeProviderError, type DeploymentMode } from '../providers/provider-errors.js'
-import { createEmptyState, touchState, type AgentExecutionState } from '../state.js'
-import { parseWithPageAnalysis, type PlaywrightAction } from '../ai/ai-parser.js'
-import { executeTest, type TestExecutionResult, type RunnerTestConfig } from '../runner/test-runner.js'
+import {
+  chromium,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "playwright";
+import type { CoreAdapters } from "../adapters.js";
+import { extractPageAnalysis, type PageAnalysis } from "../dom-extractor.js";
+import {
+  normalizeProviderError,
+  type DeploymentMode,
+} from "../providers/provider-errors.js";
+import {
+  createEmptyState,
+  touchState,
+  type AgentExecutionState,
+} from "../state.js";
+import {
+  parseWithPageAnalysis,
+  type PlaywrightAction,
+} from "../ai/ai-parser.js";
+import {
+  executeTest,
+  type TestExecutionResult,
+  type RunnerTestConfig,
+} from "../runner/test-runner.js";
 
-export type AgenticRunStatus = 'completed' | 'failed' | 'paused'
+export type AgenticRunStatus = "completed" | "failed" | "paused";
 
 export type AgenticRunResult = {
-  runId: string
-  status: AgenticRunStatus
+  runId: string;
+  status: AgenticRunStatus;
   /** Summary suitable for logs/check runs. */
   summary: {
-    totalSteps: number
-    passedSteps: number
-    failedSteps: number
-  }
+    totalSteps: number;
+    passedSteps: number;
+    failedSteps: number;
+  };
   /** Present when status is paused (e.g., missing credentials). */
   paused?: {
-    reason: 'missing_credentials' | 'needs_user_input'
-    message: string
-  }
-  execution: TestExecutionResult
-  state: AgentExecutionState
-}
+    reason: "missing_credentials" | "needs_user_input";
+    message: string;
+  };
+  execution: TestExecutionResult;
+  state: AgentExecutionState;
+};
 
 export type AgenticRunnerConfig = {
   /** How many planning/execution iterations to attempt. */
-  maxIterations?: number
+  maxIterations?: number;
   /** Deployment mode affects error messaging. */
-  deploymentMode?: DeploymentMode
+  deploymentMode?: DeploymentMode;
   /** Test runner configuration. */
-  runnerConfig?: RunnerTestConfig
-}
+  runnerConfig?: RunnerTestConfig;
+};
 
 /**
  * Main entrypoint.
@@ -61,69 +80,74 @@ export type AgenticRunnerConfig = {
  * - (optional) user interaction
  */
 export async function runAgenticTest(params: {
-  adapters: CoreAdapters
-  runId: string
-  targetUrl: string
-  description: string
-  userId?: string | null
-  config?: AgenticRunnerConfig
+  adapters: CoreAdapters;
+  runId: string;
+  targetUrl: string;
+  description: string;
+  userId?: string | null;
+  config?: AgenticRunnerConfig;
   /**
    * Test-only: inject a page analysis instead of launching a browser.
    */
-  _pageAnalysis?: PageAnalysis
+  _pageAnalysis?: PageAnalysis;
   /**
    * Test-only: inject an executor to avoid running Playwright.
    */
-  _executor?: typeof executeTest
+  _executor?: typeof executeTest;
 }): Promise<AgenticRunResult> {
-  const { adapters, runId, targetUrl, description, userId } = params
-  const config = params.config ?? {}
+  const { adapters, runId, targetUrl, description, userId } = params;
+  const config = params.config ?? {};
 
-  const maxIterations = config.maxIterations ?? 1
-  const deploymentMode = config.deploymentMode ?? 'cloud'
-  const exec = params._executor ?? executeTest
+  const maxIterations = config.maxIterations ?? 1;
+  const deploymentMode = config.deploymentMode ?? "cloud";
+  const exec = params._executor ?? executeTest;
 
   adapters.events.emit({
-    type: 'status',
+    type: "status",
     timestamp: Date.now(),
-    data: { phase: 'started', runId, targetUrl, description },
-  })
+    data: { phase: "started", runId, targetUrl, description },
+  });
 
-  let state: AgentExecutionState = createEmptyState({ runId, initialUrl: targetUrl })
+  let state: AgentExecutionState = createEmptyState({
+    runId,
+    initialUrl: targetUrl,
+  });
 
   // If a previous state exists, allow resume (Phase 4 parity uses last snapshot)
-  const existing = await adapters.state.load(runId).catch(() => null)
+  const existing = await adapters.state.load(runId).catch(() => null);
   if (existing) {
-    state = existing
+    state = existing;
   }
 
-  state = touchState({ ...state, currentUrl: state.currentUrl || targetUrl })
-  await adapters.state.save(runId, state)
+  state = touchState({ ...state, currentUrl: state.currentUrl || targetUrl });
+  await adapters.state.save(runId, state);
 
   // Credentials: attempt to fetch from adapter. If missing, pause.
-  const creds = await adapters.credentials.getForUrl(userId ?? null, targetUrl).catch(() => null)
+  const creds = await adapters.credentials
+    .getForUrl(userId ?? null, targetUrl)
+    .catch(() => null);
   if (!creds || creds.length === 0) {
-    const message = `Missing credentials for ${targetUrl}. Provide credentials to continue.`
+    const message = `Missing credentials for ${targetUrl}. Provide credentials to continue.`;
 
     adapters.events.emit({
-      type: 'pause',
+      type: "pause",
       timestamp: Date.now(),
-      data: { phase: 'paused', runId, reason: 'missing_credentials', message },
-    })
+      data: { phase: "paused", runId, reason: "missing_credentials", message },
+    });
 
     state = touchState({
       ...state,
       metadata: {
         ...(state.metadata || {}),
-        paused: { reason: 'missing_credentials', targetUrl },
+        paused: { reason: "missing_credentials", targetUrl },
       },
-    })
-    await adapters.state.save(runId, state)
+    });
+    await adapters.state.save(runId, state);
 
-    const now = new Date()
+    const now = new Date();
     const execution: TestExecutionResult = {
       success: false,
-      status: 'error',
+      status: "error",
       steps: [],
       screenshots: [],
       errorMessage: message,
@@ -131,50 +155,51 @@ export async function runAgenticTest(params: {
       completedAt: now,
       durationMs: 0,
       consoleLogs: [],
-    }
+    };
 
     return {
       runId,
-      status: 'paused',
-      paused: { reason: 'missing_credentials', message },
+      status: "paused",
+      paused: { reason: "missing_credentials", message },
       summary: { totalSteps: 0, passedSteps: 0, failedSteps: 0 },
       execution,
       state,
-    }
+    };
   }
 
   // Stash credential presence in state (never store password itself)
-  const primaryCred = creds[0]
+  const primaryCred = creds[0];
   state = touchState({
     ...state,
     metadata: {
       ...(state.metadata || {}),
       credentials: { present: true, email: primaryCred?.values?.email || null },
     },
-  })
-  await adapters.state.save(runId, state)
+  });
+  await adapters.state.save(runId, state);
 
-  let lastError: string | null = null
+  let lastError: string | null = null;
 
   for (let iteration = 1; iteration <= maxIterations; iteration++) {
     adapters.events.emit({
-      type: 'status',
+      type: "status",
       timestamp: Date.now(),
-      data: { phase: 'iteration_started', runId, iteration, maxIterations },
-    })
+      data: { phase: "iteration_started", runId, iteration, maxIterations },
+    });
 
     // Optional billing gate
     if (adapters.billing && userId) {
-      const ok = await adapters.billing.hasCredits(userId)
+      const ok = await adapters.billing.hasCredits(userId);
       if (!ok) {
-        lastError = 'Insufficient credits'
-        break
+        lastError = "Insufficient credits";
+        break;
       }
     }
 
     try {
       // 1) Acquire page analysis
-      const pageAnalysis = params._pageAnalysis ?? (await analyzeTargetUrl(targetUrl))
+      const pageAnalysis =
+        params._pageAnalysis ?? (await analyzeTargetUrl(targetUrl));
 
       // 2) Plan
       const plan = await parseWithPageAnalysis({
@@ -183,27 +208,35 @@ export async function runAgenticTest(params: {
         targetUrl,
         pageAnalysis,
         userId: userId ?? null,
-      })
+      });
 
       if (!plan.success) {
-        throw new Error(plan.error || 'Failed to generate action plan')
+        throw new Error(plan.error || "Failed to generate action plan");
       }
 
-      const actions = plan.actions as PlaywrightAction[]
+      const actions = plan.actions as PlaywrightAction[];
 
       adapters.events.emit({
-        type: 'log',
+        type: "log",
         timestamp: Date.now(),
-        data: { phase: 'plan_generated', runId, iteration, actionsCount: actions.length },
-      })
+        data: {
+          phase: "plan_generated",
+          runId,
+          iteration,
+          actionsCount: actions.length,
+        },
+      });
 
       // Update state snapshot (conversation history is adapter/provider specific; we store minimal)
       state = touchState({
         ...state,
         currentUrl: targetUrl,
-        conversationHistory: [...state.conversationHistory, { iteration, kind: 'plan', actionsCount: actions.length }],
-      })
-      await adapters.state.save(runId, state)
+        conversationHistory: [
+          ...state.conversationHistory,
+          { iteration, kind: "plan", actionsCount: actions.length },
+        ],
+      });
+      await adapters.state.save(runId, state);
 
       // 3) Execute
       const execution = await exec({
@@ -211,34 +244,50 @@ export async function runAgenticTest(params: {
         runId,
         actions,
         config: config.runnerConfig,
-      })
+      });
 
       // Optional billing deduct (simple: 1 unit per run)
       if (adapters.billing && userId) {
-        await adapters.billing.deduct(userId, 1)
+        await adapters.billing.deduct(userId, 1);
       }
 
-      const failedSteps = execution.steps.filter((s) => s.status === 'failed').length
-      const passedSteps = execution.steps.filter((s) => s.status === 'success').length
+      const failedSteps = execution.steps.filter(
+        (s) => s.status === "failed",
+      ).length;
+      const passedSteps = execution.steps.filter(
+        (s) => s.status === "success",
+      ).length;
 
       state = touchState({
         ...state,
         currentUrl: targetUrl,
         steps: execution.steps,
-        screenshots: execution.screenshots.map((s) => ({ url: s.url, stepIndex: s.stepIndex, label: s.label })),
-        conversationHistory: [...state.conversationHistory, { iteration, kind: 'execution', status: execution.status }],
-      })
-      await adapters.state.save(runId, state)
+        screenshots: execution.screenshots.map((s) => ({
+          url: s.url,
+          stepIndex: s.stepIndex,
+          label: s.label,
+        })),
+        conversationHistory: [
+          ...state.conversationHistory,
+          { iteration, kind: "execution", status: execution.status },
+        ],
+      });
+      await adapters.state.save(runId, state);
 
       adapters.events.emit({
-        type: 'completed',
+        type: "completed",
         timestamp: Date.now(),
-        data: { phase: 'completed', runId, status: execution.status, durationMs: execution.durationMs },
-      })
+        data: {
+          phase: "completed",
+          runId,
+          status: execution.status,
+          durationMs: execution.durationMs,
+        },
+      });
 
       return {
         runId,
-        status: execution.status === 'passed' ? 'completed' : 'failed',
+        status: execution.status === "passed" ? "completed" : "failed",
         summary: {
           totalSteps: execution.steps.length,
           passedSteps,
@@ -246,74 +295,89 @@ export async function runAgenticTest(params: {
         },
         execution,
         state,
-      }
-
+      };
     } catch (err) {
-      const normalized = normalizeProviderError(err, { deploymentMode })
-      lastError = normalized.message
+      const normalized = normalizeProviderError(err, { deploymentMode });
+      lastError = normalized.message;
 
       adapters.events.emit({
-        type: 'error',
+        type: "error",
         timestamp: Date.now(),
-        data: { runId, iteration, message: normalized.message, code: normalized.code, status: normalized.status },
-      })
+        data: {
+          runId,
+          iteration,
+          message: normalized.message,
+          code: normalized.code,
+          status: normalized.status,
+        },
+      });
 
       state = touchState({
         ...state,
-        conversationHistory: [...state.conversationHistory, { iteration, kind: 'error', message: normalized.message }],
-      })
-      await adapters.state.save(runId, state)
+        conversationHistory: [
+          ...state.conversationHistory,
+          { iteration, kind: "error", message: normalized.message },
+        ],
+      });
+      await adapters.state.save(runId, state);
 
       // try next iteration if any
-      continue
+      continue;
     }
   }
 
   adapters.events.emit({
-    type: 'completed',
+    type: "completed",
     timestamp: Date.now(),
-    data: { phase: 'completed', runId, status: 'failed', error: lastError || 'Unknown error' },
-  })
+    data: {
+      phase: "completed",
+      runId,
+      status: "failed",
+      error: lastError || "Unknown error",
+    },
+  });
 
   // Return a minimal failure execution result if we never ran executeTest
-  const now = new Date()
+  const now = new Date();
   const execution: TestExecutionResult = {
     success: false,
-    status: 'error',
+    status: "error",
     steps: [],
     screenshots: [],
-    errorMessage: lastError || 'Agentic run failed',
+    errorMessage: lastError || "Agentic run failed",
     startedAt: now,
     completedAt: now,
     durationMs: 0,
     consoleLogs: [],
-  }
+  };
 
   return {
     runId,
-    status: 'failed',
+    status: "failed",
     summary: { totalSteps: 0, passedSteps: 0, failedSteps: 0 },
     execution,
     state,
-  }
+  };
 }
 
 async function analyzeTargetUrl(url: string): Promise<PageAnalysis> {
   // For OSS parity we launch a short-lived Playwright browser to capture DOM analysis.
-  let browser: Browser | null = null
-  let context: BrowserContext | null = null
-  let page: Page | null = null
+  let browser: Browser | null = null;
+  let context: BrowserContext | null = null;
+  let page: Page | null = null;
 
   try {
-    browser = await chromium.launch({ headless: true })
-    context = await browser.newContext({ viewport: { width: 1280, height: 720 } })
-    page = await context.newPage()
+    browser = await chromium.launch({ headless: true });
+    context = await browser.newContext({
+      viewport: { width: 1280, height: 720 },
+    });
+    page = await context.newPage();
 
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 })
-    return await extractPageAnalysis(page)
+    await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+    return await extractPageAnalysis(page);
   } finally {
-    if (page) await page.close().catch(() => {})
-    if (context) await context.close().catch(() => {})
-    if (browser) await browser.close().catch(() => {})
+    if (page) await page.close().catch(() => {});
+    if (context) await context.close().catch(() => {});
+    if (browser) await browser.close().catch(() => {});
   }
 }

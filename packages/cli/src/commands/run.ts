@@ -29,7 +29,7 @@ export async function runCommand(args: { url: string; desc: string }): Promise<n
     runId,
     targetUrl: args.url,
     description: args.desc,
-    config: { maxIterations: 1 },
+    config: { maxIterations: 1, deploymentMode: 'self_hosted' },
   })
 
   if (res.status === 'paused') {

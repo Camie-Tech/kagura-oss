@@ -36,13 +36,16 @@ export function createAnthropicAiProvider(): AIProvider {
 
       const text = await res.text()
       if (!res.ok) {
-        throw new Error(`Anthropic API error (${res.status}): ${text}`)
+        const errMsg = `Anthropic API error (${res.status}): ${text}`
+        console.error('[kagura:debug]', errMsg)
+        throw new Error(errMsg)
       }
 
       const json: any = JSON.parse(text)
       const content = json?.content
       const firstText = Array.isArray(content) ? content.find((c) => c?.type === 'text')?.text : null
       if (typeof firstText !== 'string') {
+        console.error('[kagura:debug] Unexpected Anthropic response:', JSON.stringify(json))
         throw new Error('Anthropic API: unexpected response shape')
       }
       return firstText

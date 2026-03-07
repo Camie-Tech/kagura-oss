@@ -105,8 +105,10 @@ export function normalizeProviderError(
     code: 'PROVIDER_ERROR',
     retryable: status >= 500,
     message:
-      deploymentMode === 'cloud'
-        ? 'AI provider error. Please try again later.'
-        : 'AI provider error. Please check your provider status and try again.',
+      provider === 'unknown' && message !== 'Unknown provider error'
+        ? message
+        : deploymentMode === 'cloud'
+          ? 'AI provider error. Please try again later.'
+          : 'AI provider error. Please check your provider status and try again.',
   }
 }

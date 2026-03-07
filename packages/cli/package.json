@@ -22,7 +22,7 @@
     "cli"
   ],
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js || true",
+    "build": "tsc && node -e \"try{require('fs').chmodSync('dist/index.js',0o755)}catch(e){}\"",
     "dev": "tsc --watch",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "typecheck": "tsc --noEmit",
