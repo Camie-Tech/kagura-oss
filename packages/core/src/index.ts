@@ -24,7 +24,12 @@ export * from './agent/agentic-runner.js'
 export * from './agent/live-agent-runner.js'
 export * from './exploration/exploration-engine.js'
 export * from './exploration/heuristics.js'
+export * from './exploration/test-generator.js'
+export * from './exploration/exploration-events.js'
 
-// Future exports (to be implemented)
-// export * from './agentic-runner'
-// export * from './exploration-runner'
+// Export decomposer modules
+export * from './decomposer/test-decomposer.js'
+export * from './decomposer/group-decomposer.js'
+
+// Export codegen modules
+export * from './codegen/code-generator.js'
