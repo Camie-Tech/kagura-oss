@@ -152,25 +152,9 @@ export async function runLiveAgenticTest(params: {
   state = touchState({ ...state, currentUrl: state.currentUrl || targetUrl })
   await adapters.state.save(runId, state)
 
-  // Credentials gating (pause if missing)
-  const creds = await adapters.credentials.getForUrl(userId ?? null, targetUrl).catch(() => [])
-  if (!creds || creds.length === 0) {
-    const message = `Missing credentials for ${targetUrl}. Provide credentials to continue.`
-    adapters.events.emit({ type: 'pause', timestamp: Date.now(), data: { runId, reason: 'missing_credentials', message } })
-    state = touchState({
-      ...state,
-      metadata: { ...(state.metadata || {}), paused: { reason: 'missing_credentials', targetUrl } },
-    })
-    await adapters.state.save(runId, state)
-    return {
-      runId,
-      status: 'paused',
-      steps: [],
-      state,
-      summary: { totalSteps: 0, passedSteps: 0, failedSteps: 0 },
-      paused: { reason: 'missing_credentials', message },
-    }
-  }
+  // Credentials: fetch if available (optional – only used when agent detects login is needed)
+  let creds = await adapters.credentials.getForUrl(userId ?? null, targetUrl).catch(() => [] as any[])
+  if (!creds) creds = []
 
   // Browser lifecycle
   const browser = await launchBrowser(browserType, headless)
@@ -279,11 +263,25 @@ export async function runLiveAgenticTest(params: {
       if (agentAction.action === 'ask_user') {
         const msg = String(agentAction.message || 'Need input')
 
-        // If it is credentials, auto-answer from saved creds (first credential)
+        // If it is credentials, auto-answer from saved creds if available
         if (isCredentialQuestion(msg)) {
-          const values = creds[0]?.values || {}
-          const response = formatCredentialsForAgent(values)
-          turns.push({ role: 'user', content: response })
+          if (creds.length > 0) {
+            const values = creds[0]?.values || {}
+            const response = formatCredentialsForAgent(values)
+            turns.push({ role: 'user', content: response })
+            continue
+          }
+          // No credentials available – pause and ask the user
+          const credMessage = `Login credentials needed for ${targetUrl}. ${msg}`
+          adapters.events.emit({ type: 'pause', timestamp: Date.now(), data: { runId, reason: 'missing_credentials', message: credMessage } })
+          state = touchState({
+            ...state,
+            metadata: { ...(state.metadata || {}), paused: { reason: 'missing_credentials', targetUrl } },
+          })
+          await adapters.state.save(runId, state)
+
+          const userReply = await adapters.interaction.askUser(credMessage)
+          turns.push({ role: 'user', content: `User replied: ${userReply}` })
           continue
         }
 

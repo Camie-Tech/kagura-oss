@@ -100,59 +100,22 @@ export async function runAgenticTest(params: {
   state = touchState({ ...state, currentUrl: state.currentUrl || targetUrl })
   await adapters.state.save(runId, state)
 
-  // Credentials: attempt to fetch from adapter. If missing, pause.
+  // Credentials: attempt to fetch from adapter (optional – only used if login is needed)
   const creds = await adapters.credentials.getForUrl(userId ?? null, targetUrl).catch(() => null)
-  if (!creds || creds.length === 0) {
-    const message = `Missing credentials for ${targetUrl}. Provide credentials to continue.`
+  const hasCredentials = creds && creds.length > 0
 
-    adapters.events.emit({
-      type: 'pause',
-      timestamp: Date.now(),
-      data: { phase: 'paused', runId, reason: 'missing_credentials', message },
-    })
-
+  if (hasCredentials) {
+    // Stash credential presence in state (never store password itself)
+    const primaryCred = creds[0]
     state = touchState({
       ...state,
       metadata: {
         ...(state.metadata || {}),
-        paused: { reason: 'missing_credentials', targetUrl },
+        credentials: { present: true, email: primaryCred?.values?.email || null },
       },
     })
     await adapters.state.save(runId, state)
-
-    const now = new Date()
-    const execution: TestExecutionResult = {
-      success: false,
-      status: 'error',
-      steps: [],
-      screenshots: [],
-      errorMessage: message,
-      startedAt: now,
-      completedAt: now,
-      durationMs: 0,
-      consoleLogs: [],
-    }
-
-    return {
-      runId,
-      status: 'paused',
-      paused: { reason: 'missing_credentials', message },
-      summary: { totalSteps: 0, passedSteps: 0, failedSteps: 0 },
-      execution,
-      state,
-    }
   }
-
-  // Stash credential presence in state (never store password itself)
-  const primaryCred = creds[0]
-  state = touchState({
-    ...state,
-    metadata: {
-      ...(state.metadata || {}),
-      credentials: { present: true, email: primaryCred?.values?.email || null },
-    },
-  })
-  await adapters.state.save(runId, state)
 
   let lastError: string | null = null
 
@@ -179,7 +142,9 @@ export async function runAgenticTest(params: {
       // 2) Plan
       const plan = await parseWithPageAnalysis({
         adapters,
-        description: `${description}\n\nLogin credentials are available for this site. Use them if a login step is required.`,
+        description: hasCredentials
+          ? `${description}\n\nLogin credentials are available for this site. Use them if a login step is required.`
+          : description,
         targetUrl,
         pageAnalysis,
         userId: userId ?? null,
