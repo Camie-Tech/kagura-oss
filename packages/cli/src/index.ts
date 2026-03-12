@@ -2,6 +2,7 @@
 
 import { runCommand } from './commands/run.js';
 import { setupCommand } from './commands/setup.js';
+import { uiCommand } from './commands/ui.js';
 import { loadCliConfig } from './config/config.js';
 import pc from 'picocolors';
 
@@ -10,6 +11,7 @@ function usage() {
 
 Usage:
   kagura setup                                  Initialize the CLI and authenticate
+  kagura ui                                     Launch the local visualization dashboard
   kagura run --url <targetUrl> --desc "<test description>"
 `);
 }
@@ -37,6 +39,11 @@ async function main() {
 
   if (cmd === 'setup') {
     await setupCommand();
+    return;
+  }
+
+  if (cmd === 'ui') {
+    await uiCommand();
     return;
   }
 
