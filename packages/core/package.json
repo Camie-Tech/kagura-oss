@@ -33,6 +33,8 @@
     "README.md"
   ],
   "dependencies": {
+    "imapflow": "^1.2.13",
+    "mailparser": "^3.9.4",
     "playwright": "^1.40.0",
     "zod": "^3.22.0"
   },
