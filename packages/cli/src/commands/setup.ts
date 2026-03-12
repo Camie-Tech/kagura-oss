@@ -8,13 +8,15 @@ import http from 'node:http';
 
 function maskApiKey(key: string): string {
   if (!key || key.length < 15) return '*'.repeat(key.length);
-  const prefix = key.slice(0, 9);
-  const suffix = key.slice(-2);
-  const hidden = '*'.repeat(key.length - 11);
+  // Support both sk-ant- and kag_live_ prefixes
+  const prefixLen = key.startsWith('sk-ant-') ? 14 : 9;
+  const prefix = key.slice(0, prefixLen);
+  const suffix = key.slice(-4);
+  const hidden = '*'.repeat(Math.max(4, key.length - prefixLen - 4));
   return `${prefix}${hidden}${suffix}`;
 }
 
-async function verifyApiKey(apiKey: string, apiUrl: string): Promise<boolean> {
+async function verifyKaguraKey(apiKey: string, apiUrl: string): Promise<boolean> {
   return new Promise((resolve) => {
     try {
       const urlObj = new URL('/api/auth/verify-key', apiUrl);
@@ -38,98 +40,146 @@ async function verifyApiKey(apiKey: string, apiUrl: string): Promise<boolean> {
   });
 }
 
+// Just a basic format check for Anthropic until OAuth is ready
+function verifyAnthropicFormat(key: string): boolean {
+  return key.startsWith('sk-ant-') && key.length > 40;
+}
+
 export async function setupCommand() {
   console.clear();
   
-  // Render ASCII Art Logo - using 'ANSI Shadow' font for the blocky look like OpenClaw
   const logoText = figlet.textSync('KAGURA', { font: 'ANSI Shadow' });
-  
-  // Create the OpenClaw-style header
   const version = require('../../package.json').version;
   console.log(`\n${pc.red('⛩')} ${pc.red('Kagura')} ${pc.gray(version)} - ${pc.red('Give me a URL and I\'ll give you peace of mind.')}\n`);
   
-  // The blocky white/gray logo matching OpenClaw's style
   const logoLines = logoText.split('\n');
   const coloredLogo = logoLines.map(line => pc.bgWhite(pc.black(line))).join('\n');
   console.log(coloredLogo);
-  
-  // Sub-logo flourish
   console.log(`\n           ${pc.red('⛩')} ${pc.white('KAGURA AI')} ${pc.red('⛩')}\n`);
 
   p.intro(pc.red(pc.bold(' Kagura onboarding ')));
 
-  // Resolve API URL
   const currentConfig = await loadCliConfig();
   const rawApiUrl = process.env.KAGURA_API_URL || currentConfig.apiUrl || 'https://kagura-app.camie.tech';
   const apiUrl = rawApiUrl.replace(/\/$/, '');
   const settingsUrl = `${apiUrl}/settings#api-keys`;
 
-  // Start a visual group for Setup
   p.log.message('');
-  p.log.step(pc.red(pc.bold('Authentication')));
-  p.log.message(pc.gray('Connect your CLI to your Kagura account to run remote testing agents.'));
+  p.log.step(pc.red(pc.bold('Environment Selection')));
+  p.log.message(pc.gray('Choose how you want to run Kagura tests.'));
   p.log.message('');
 
-  // Prompt to open browser (using select instead of confirm to match the visual style better)
-  const openBrowserAction = await p.select({
-    message: 'How would you like to get your API key?',
+  const runMode = await p.select({
+    message: 'Select your Kagura operating mode:',
     options: [
-      { value: 'browser', label: 'Open browser automatically', hint: 'recommended' },
-      { value: 'manual', label: 'I already have my key' }
+      { value: 'cloud', label: 'Kagura Cloud (Managed)', hint: 'Requires Kagura account (Recommended)' },
+      { value: 'local', label: 'Local OSS (Self-hosted)', hint: 'Requires your own Anthropic API key' }
     ]
   });
 
-  if (p.isCancel(openBrowserAction)) {
+  if (p.isCancel(runMode)) {
     p.cancel('Setup cancelled.');
     process.exit(0);
   }
 
-  if (openBrowserAction === 'browser') {
-    const s1 = p.spinner();
-    s1.start(`Opening ${settingsUrl}`);
-    await open(settingsUrl);
-    // Give the user a moment to see the spinner before asking for the key
-    await new Promise(r => setTimeout(r, 1500));
-    s1.stop('Browser opened successfully');
-  }
+  // --- LOCAL MODE ---
+  if (runMode === 'local') {
+    p.log.message('');
+    p.log.step(pc.red(pc.bold('Local Environment Setup')));
+    p.log.message(pc.gray('Note: In a future update, this will use a secure browser OAuth flow.'));
+    
+    const antKey = await p.password({
+      message: 'Paste your Anthropic API key (sk-ant-...):',
+      validate(value) {
+        if (!value) return 'API key is required';
+        if (!String(value).startsWith('sk-ant-')) return 'Must be a valid Anthropic key (starts with sk-ant-)';
+      }
+    });
 
-  // Text input
-  const apiKey = await p.text({
-    message: 'Paste your Kagura API key:',
-    placeholder: 'kag_live_...',
-    validate(value) {
-      if (!value) return 'API key is required';
-      if (value.length < 10) return 'Invalid API key format';
-    },
-  });
+    if (p.isCancel(antKey)) {
+      p.cancel('Setup cancelled.');
+      process.exit(0);
+    }
 
-  if (p.isCancel(apiKey)) {
-    p.cancel('Setup cancelled.');
-    process.exit(0);
-  }
+    const keyString = String(antKey).trim();
+    const s = p.spinner();
+    s.start('Saving local configuration...');
 
-  const keyString = String(apiKey).trim();
+    if (!verifyAnthropicFormat(keyString)) {
+      s.stop('Format error');
+      p.cancel(pc.red('Invalid Anthropic key format.'));
+      process.exit(1);
+    }
 
-  // Verify and Save the config
-  const s = p.spinner();
-  s.start('Verifying API Key against Kagura Cloud...');
+    await saveCliConfig({ ...currentConfig, mode: 'local', anthropicApiKey: keyString });
+    s.stop('Local configuration saved');
+
+    p.note(
+      `${pc.gray('Mode:')} ${pc.cyan('Local OSS')}\n${pc.gray('Anthropic Key:')} ${pc.green(maskApiKey(keyString))}\n${pc.gray('Configured:')} ${pc.white('~/.kagura/config.json')}`,
+      'Setup Complete'
+    );
+  } 
   
-  const isValid = await verifyApiKey(keyString, apiUrl);
-  
-  if (!isValid) {
-    s.stop('Verification failed');
-    p.cancel(pc.red('Error: The API key provided is invalid or the server is unreachable.'));
-    process.exit(1);
-  }
-  
-  s.message('Saving configuration locally...');
-  await saveCliConfig({ ...currentConfig, apiKey: keyString, apiUrl });
-  s.stop('Configuration saved');
+  // --- CLOUD MODE ---
+  else if (runMode === 'cloud') {
+    p.log.message('');
+    p.log.step(pc.red(pc.bold('Cloud Authentication')));
+    
+    const openBrowserAction = await p.select({
+      message: 'How would you like to get your Kagura API key?',
+      options: [
+        { value: 'browser', label: 'Open browser automatically', hint: 'recommended' },
+        { value: 'manual', label: 'I already have my key' }
+      ]
+    });
 
-  p.note(
-    `${pc.gray('API Key:')} ${pc.green(maskApiKey(keyString))}\n${pc.gray('API URL:')} ${pc.blue(apiUrl)}\n${pc.gray('Configured:')} ${pc.white('~/.kagura/config.json')}`,
-    'Setup Complete'
-  );
+    if (p.isCancel(openBrowserAction)) {
+      p.cancel('Setup cancelled.');
+      process.exit(0);
+    }
+
+    if (openBrowserAction === 'browser') {
+      const s1 = p.spinner();
+      s1.start(`Opening ${settingsUrl}`);
+      await open(settingsUrl);
+      await new Promise(r => setTimeout(r, 1500));
+      s1.stop('Browser opened successfully');
+    }
+
+    const apiKey = await p.password({
+      message: 'Paste your Kagura API key:',
+      validate(value) {
+        if (!value) return 'API key is required';
+        if (value.length < 10) return 'Invalid API key format';
+      }
+    });
+
+    if (p.isCancel(apiKey)) {
+      p.cancel('Setup cancelled.');
+      process.exit(0);
+    }
+
+    const keyString = String(apiKey).trim();
+    const s = p.spinner();
+    s.start('Verifying API Key against Kagura Cloud...');
+    
+    const isValid = await verifyKaguraKey(keyString, apiUrl);
+    
+    if (!isValid) {
+      s.stop('Verification failed');
+      p.cancel(pc.red('Error: The API key provided is invalid or the server is unreachable.'));
+      process.exit(1);
+    }
+    
+    s.message('Saving configuration locally...');
+    await saveCliConfig({ ...currentConfig, mode: 'cloud', apiKey: keyString, apiUrl });
+    s.stop('Configuration saved');
+
+    p.note(
+      `${pc.gray('Mode:')} ${pc.cyan('Kagura Cloud')}\n${pc.gray('API Key:')} ${pc.green(maskApiKey(keyString))}\n${pc.gray('API URL:')} ${pc.blue(apiUrl)}\n${pc.gray('Configured:')} ${pc.white('~/.kagura/config.json')}`,
+      'Setup Complete'
+    );
+  }
 
   p.outro(pc.green('You are all set! Run ') + pc.bold(pc.white('kagura run --url <url> --desc "<desc>"')) + pc.green(' to start testing.'));
 }

@@ -1,10 +1,11 @@
 import fs from 'node:fs/promises'
-
 import { kaguraConfigPath, kaguraHomeDir } from './paths.js'
 
 export type CliConfig = {
+  mode?: 'local' | 'cloud'
   apiUrl?: string
   apiKey?: string
+  anthropicApiKey?: string
 }
 
 export async function loadCliConfig(): Promise<CliConfig> {
@@ -27,7 +28,7 @@ export async function saveCliConfig(cfg: CliConfig): Promise<void> {
 }
 
 export function resolveApiUrl(cfg: CliConfig): string {
-  return cfg.apiUrl || process.env.KAGURA_API_URL || 'http://localhost:3004'
+  return cfg.apiUrl || process.env.KAGURA_API_URL || 'https://app.kagura.run'
 }
 
 export function resolveApiKey(cfg: CliConfig): string | undefined {
