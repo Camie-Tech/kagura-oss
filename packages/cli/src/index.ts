@@ -11,9 +11,6 @@ function usage() {
 Usage:
   kagura setup                                  Initialize the CLI and authenticate
   kagura run --url <targetUrl> --desc "<test description>"
-
-Env:
-  ANTHROPIC_API_KEY=...   (required for AI parsing in CLI)
 `);
 }
 
@@ -45,9 +42,24 @@ async function main() {
 
   if (cmd === 'run') {
     const config = await loadCliConfig();
-    if (!config.apiKey) {
-      console.log(pc.red('\nError: Missing Kagura API Key.'));
-      console.log(pc.yellow('Please run `kagura setup` first to authenticate your CLI.\n'));
+    
+    // Check if setup has been completed
+    if (!config.mode) {
+      console.log(pc.red('\nError: CLI not configured.'));
+      console.log(pc.yellow('Please run `kagura setup` first to configure your environment.\n'));
+      process.exit(1);
+    }
+
+    // Validate mode-specific requirements
+    if (config.mode === 'cloud' && !config.apiKey) {
+      console.log(pc.red('\nError: Missing Kagura API Key for Cloud mode.'));
+      console.log(pc.yellow('Please run `kagura setup` again.\n'));
+      process.exit(1);
+    }
+    
+    if (config.mode === 'local' && !config.anthropicApiKey) {
+      console.log(pc.red('\nError: Missing Anthropic API Key for Local mode.'));
+      console.log(pc.yellow('Please run `kagura setup` again.\n'));
       process.exit(1);
     }
 
