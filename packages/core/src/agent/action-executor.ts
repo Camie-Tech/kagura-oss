@@ -53,27 +53,34 @@ export async function executeSingleAction(page: Page, action: PlaywrightAction):
       if (!action.selector) throw new Error('Click action requires selector')
       
       // Check if this looks like a submit/login button that might trigger navigation
-      const isLikelySubmit = action.selector.toLowerCase().includes('submit') ||
-                             action.selector.toLowerCase().includes('login') ||
-                             action.selector.toLowerCase().includes('sign') ||
-                             action.description?.toLowerCase().includes('submit') ||
-                             action.description?.toLowerCase().includes('login') ||
-                             action.description?.toLowerCase().includes('sign in')
+      const selectorLower = action.selector.toLowerCase()
+      const descLower = action.description?.toLowerCase() || ''
+      const isLikelySubmit = selectorLower.includes('submit') ||
+                             selectorLower.includes('login') ||
+                             selectorLower.includes('sign') ||
+                             selectorLower.includes('button') ||
+                             descLower.includes('submit') ||
+                             descLower.includes('login') ||
+                             descLower.includes('sign in') ||
+                             descLower.includes('sign-in') ||
+                             descLower.includes('log in')
       
       const currentUrl = page.url()
       await page.click(action.selector, { timeout: action.timeout ?? 10000 })
       
-      // For submit-like buttons, wait for navigation or network idle
+      // For submit-like buttons, wait for navigation
       if (isLikelySubmit) {
         try {
-          // Wait up to 10 seconds for URL to change OR network to settle
-          await Promise.race([
-            page.waitForURL((url) => url.href !== currentUrl, { timeout: 10000 }),
-            page.waitForLoadState('networkidle', { timeout: 10000 }),
-          ])
+          // Wait up to 15 seconds for URL to actually change
+          await page.waitForURL((url) => url.href !== currentUrl, { timeout: 15000 })
         } catch {
-          // If neither happens, just wait a bit for any async updates
-          await page.waitForTimeout(2000)
+          // URL didn't change — maybe it's a SPA, wait for network idle instead
+          try {
+            await page.waitForLoadState('networkidle', { timeout: 5000 })
+          } catch {
+            // Last resort: fixed wait
+            await page.waitForTimeout(3000)
+          }
         }
       } else {
         // For regular clicks, brief wait for any animations/updates
