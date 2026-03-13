@@ -214,6 +214,21 @@ export async function setupCommand() {
   }
 
   p.outro(pc.green('You are all set! Run ') + pc.bold(pc.white('kagura run --url <url> --desc "<desc>"')) + pc.green(' to start testing.'));
+
+  // --- AUTO-LAUNCH UI (local mode only) ---
+  if (runMode === 'local') {
+    const launchUi = await p.confirm({
+      message: 'Launch the local dashboard now?',
+      initialValue: true,
+    });
+
+    if (!p.isCancel(launchUi) && launchUi) {
+      console.log('');
+      // Import and run UI command
+      const { uiCommand } = await import('./ui.js');
+      await uiCommand();
+    }
+  }
 }
 
 // ── Email Skill Setup ────────────────────────────────────────────────────
