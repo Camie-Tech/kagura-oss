@@ -90,13 +90,30 @@ export async function runCommand(args: { url: string; desc: string; prompt?: str
     );
   }
 
+  // Interactive user input handler
+  const askUser = async (question: string): Promise<string> => {
+    s.stop('Agent needs your input');
+    
+    const response = await p.text({
+      message: pc.yellow(question),
+      placeholder: 'Type your response...',
+    });
+    
+    if (p.isCancel(response)) {
+      return '';
+    }
+    
+    s.start('Continuing test...');
+    return response as string;
+  };
+
   const adapters: CoreAdapters = {
     events: createConsoleEventEmitter(),
     screenshots: createFsScreenshotStorage(),
     credentials: credentialProvider,
     state: createFsStateStorage(),
     interaction: {
-      askUser: async () => '',
+      askUser,
       isAborted: () => false,
     },
     billing: null,
@@ -108,8 +125,9 @@ export async function runCommand(args: { url: string; desc: string; prompt?: str
 
   try {
     // Combine description and prompt for the AI
+    // Make it very clear that credentials are provided and should be used directly
     const fullDescription = args.prompt 
-      ? `${args.desc}\n\nInstructions:\n${args.prompt}`
+      ? `${args.desc}\n\n## Instructions (FOLLOW EXACTLY):\n${args.prompt}\n\nIMPORTANT: If credentials (email, password, etc.) are provided above, use them directly. Do NOT ask the user for credentials that are already specified in the instructions.`
       : args.desc;
 
     const res = await runAgenticTest({
