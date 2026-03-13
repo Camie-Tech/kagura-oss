@@ -22,7 +22,7 @@
     "cli"
   ],
   "scripts": {
-    "build": "tsc && mkdir -p dist/ui && cp src/ui/index.html dist/ui/ && chmod +x dist/index.js || true",
+    "build": "tsc && node -e \"const fs=require('fs');fs.mkdirSync('dist/ui',{recursive:true});fs.copyFileSync('src/ui/index.html','dist/ui/index.html')\" && chmod +x dist/index.js || true",
     "dev": "tsc --watch",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "typecheck": "tsc --noEmit",
