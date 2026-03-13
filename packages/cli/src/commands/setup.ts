@@ -179,13 +179,12 @@ export async function setupCommand() {
 
     const keyString = String(apiKey).trim();
     const s = p.spinner();
-    s.start('Verifying API Key against Kagura Cloud...');
+    s.start('Validating API key format...');
     
-    const isValid = await verifyKaguraKey(keyString, apiUrl);
-    
-    if (!isValid) {
-      s.stop('Verification failed');
-      p.cancel(pc.red('Error: The API key provided is invalid or the server is unreachable.'));
+    // Format validation only - server validation happens on first API call
+    if (!keyString.startsWith('kag_live_') || keyString.length < 20) {
+      s.stop('Validation failed');
+      p.cancel(pc.red('Error: Invalid API key format. Must start with kag_live_ and be at least 20 characters.'));
       process.exit(1);
     }
     
