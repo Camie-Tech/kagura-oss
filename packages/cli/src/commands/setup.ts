@@ -163,26 +163,24 @@ export async function setupCommand() {
       s1.stop('Browser opened successfully');
     }
 
-    // Show prefix, user pastes the rest
-    p.log.message(pc.gray('Your API key starts with kag_live_ — paste only the part AFTER the prefix.'));
-    const apiKeySuffix = await p.password({
-      message: 'kag_live_',
+    const apiKey = await p.text({
+      message: 'Paste your Kagura API key:',
       validate(value) {
         if (!value) return 'API key is required';
-        // User might paste full key or just suffix - handle both
-        const cleaned = String(value).replace(/^kag_live_/, '');
-        if (cleaned.length < 10) return 'Invalid API key - too short';
+        if (!String(value).startsWith('kag_live_')) return 'Must start with kag_live_';
+        if (value.length < 20) return 'Invalid API key - too short';
       }
     });
 
-    if (p.isCancel(apiKeySuffix)) {
+    if (p.isCancel(apiKey)) {
       p.cancel('Setup cancelled.');
       process.exit(0);
     }
 
-    // Handle both: user pasting full key or just the suffix
-    const rawInput = String(apiKeySuffix).trim();
-    const keyString = rawInput.startsWith('kag_live_') ? rawInput : `kag_live_${rawInput}`;
+    const keyString = String(apiKey).trim();
+    
+    // Show masked version: kag_live_****sk
+    p.log.message(pc.gray(`Key received: ${maskApiKey(keyString)}`));
     
     const s = p.spinner();
     s.start('Validating API key format...');
