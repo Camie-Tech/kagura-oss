@@ -10,12 +10,25 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 function maskApiKey(key: string): string {
-  if (!key || key.length < 15) return '*'.repeat(key.length);
+  if (!key || key.length < 12) return '*'.repeat(key.length);
   // Support both sk-ant- and kag_live_ prefixes
-  const prefixLen = key.startsWith('sk-ant-') ? 14 : 9;
-  const prefix = key.slice(0, prefixLen);
-  const suffix = key.slice(-4);
-  const hidden = '*'.repeat(Math.max(4, key.length - prefixLen - 4));
+  if (key.startsWith('kag_live_')) {
+    // Show prefix + last 2 chars: kag_live_****ab
+    const prefix = 'kag_live_';
+    const suffix = key.slice(-2);
+    const hidden = '*'.repeat(Math.max(4, key.length - prefix.length - 2));
+    return `${prefix}${hidden}${suffix}`;
+  } else if (key.startsWith('sk-ant-')) {
+    // Anthropic: show prefix + last 4 chars
+    const prefix = key.slice(0, 14);
+    const suffix = key.slice(-4);
+    const hidden = '*'.repeat(Math.max(4, key.length - 14 - 4));
+    return `${prefix}${hidden}${suffix}`;
+  }
+  // Generic fallback
+  const prefix = key.slice(0, 4);
+  const suffix = key.slice(-2);
+  const hidden = '*'.repeat(Math.max(4, key.length - 6));
   return `${prefix}${hidden}${suffix}`;
 }
 
@@ -151,10 +164,11 @@ export async function setupCommand() {
     }
 
     const apiKey = await p.password({
-      message: 'Paste your Kagura API key:',
+      message: 'Paste your Kagura API key (kag_live_...):',
       validate(value) {
         if (!value) return 'API key is required';
-        if (value.length < 10) return 'Invalid API key format';
+        if (!String(value).startsWith('kag_live_')) return 'Must be a valid Kagura key (starts with kag_live_)';
+        if (value.length < 20) return 'Invalid API key format';
       }
     });
 
