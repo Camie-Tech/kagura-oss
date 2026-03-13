@@ -184,9 +184,18 @@ export async function parseWithPageAnalysis(params: {
 
     userPrompt += `\nTest Description:\n${description}\n\nBased on what you can ACTUALLY SEE on the page, generate the most accurate action plan possible.\nReturn ONLY a JSON array of actions.`
 
+    // Inject skill prompts so the AI knows what capabilities are available
+    let systemPrompt = AGENTIC_SYSTEM_PROMPT
+    if (adapters.skills) {
+      const skillPrompts = adapters.skills.getSkillPrompts()
+      if (skillPrompts) {
+        systemPrompt += skillPrompts
+      }
+    }
+
     const text = await adapters.ai.completeText(
       {
-        system: AGENTIC_SYSTEM_PROMPT,
+        system: systemPrompt,
         prompt: userPrompt,
         model: model || 'claude-sonnet-4-20250514',
         maxTokens: 4096,
