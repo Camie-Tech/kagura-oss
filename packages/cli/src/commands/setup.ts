@@ -163,28 +163,33 @@ export async function setupCommand() {
       s1.stop('Browser opened successfully');
     }
 
-    const apiKey = await p.password({
-      message: 'Paste your Kagura API key (kag_live_...):',
+    // Show prefix, user pastes the rest
+    p.log.message(pc.gray('Your API key starts with kag_live_ — paste only the part AFTER the prefix.'));
+    const apiKeySuffix = await p.password({
+      message: 'kag_live_',
       validate(value) {
         if (!value) return 'API key is required';
-        if (!String(value).startsWith('kag_live_')) return 'Must be a valid Kagura key (starts with kag_live_)';
-        if (value.length < 20) return 'Invalid API key format';
+        // User might paste full key or just suffix - handle both
+        const cleaned = String(value).replace(/^kag_live_/, '');
+        if (cleaned.length < 10) return 'Invalid API key - too short';
       }
     });
 
-    if (p.isCancel(apiKey)) {
+    if (p.isCancel(apiKeySuffix)) {
       p.cancel('Setup cancelled.');
       process.exit(0);
     }
 
-    const keyString = String(apiKey).trim();
+    // Handle both: user pasting full key or just the suffix
+    const rawInput = String(apiKeySuffix).trim();
+    const keyString = rawInput.startsWith('kag_live_') ? rawInput : `kag_live_${rawInput}`;
+    
     const s = p.spinner();
     s.start('Validating API key format...');
     
-    // Format validation only - server validation happens on first API call
-    if (!keyString.startsWith('kag_live_') || keyString.length < 20) {
+    if (keyString.length < 20) {
       s.stop('Validation failed');
-      p.cancel(pc.red('Error: Invalid API key format. Must start with kag_live_ and be at least 20 characters.'));
+      p.cancel(pc.red('Error: Invalid API key - too short.'));
       process.exit(1);
     }
     
