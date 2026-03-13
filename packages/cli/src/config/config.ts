@@ -1,11 +1,28 @@
 import fs from 'node:fs/promises'
 import { kaguraConfigPath, kaguraHomeDir } from './paths.js'
 
+export type EmailConfig = {
+  baseEmail: string
+  imap: {
+    host: string
+    port: number
+    secure: boolean
+    auth: { user: string; pass: string }
+  }
+  smtp?: {
+    host: string
+    port: number
+    secure: boolean
+    auth: { user: string; pass: string }
+  }
+}
+
 export type CliConfig = {
   mode?: 'local' | 'cloud'
   apiUrl?: string
   apiKey?: string
   anthropicApiKey?: string
+  email?: EmailConfig
 }
 
 export async function loadCliConfig(): Promise<CliConfig> {

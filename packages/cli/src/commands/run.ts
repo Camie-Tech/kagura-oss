@@ -4,7 +4,13 @@ import pc from 'picocolors';
 import { loadCliConfig } from '../config/config.js';
 
 // We import the engine for local mode execution
-import { runAgenticTest, type CoreAdapters } from '@kagura-run/core';
+import {
+  runAgenticTest,
+  type CoreAdapters,
+  createSkillRegistry,
+  createEmailSkill,
+  createEmailCredentialProvider,
+} from '@kagura-run/core';
 import { createConsoleEventEmitter } from '../adapters/console-events.js';
 import { createFsScreenshotStorage } from '../adapters/fs-screenshots.js';
 import { createFsStateStorage } from '../adapters/fs-state.js';
@@ -56,10 +62,34 @@ export async function runCommand(args: { url: string; desc: string }): Promise<n
 
   const runId = `run_${crypto.randomUUID()}`;
 
+  // Build skills registry
+  let skills = createSkillRegistry();
+  let credentialProvider = createFileCredentialProvider();
+
+  // Wire up email skill if configured
+  if (config.email?.baseEmail && config.email?.imap) {
+    const emailSkill = createEmailSkill({
+      baseEmail: config.email.baseEmail,
+      imap: config.email.imap,
+      smtp: config.email.smtp,
+    });
+    skills.register(emailSkill);
+
+    // Wrap credential provider: auto-generate via email skill when no saved creds exist
+    credentialProvider = createEmailCredentialProvider(
+      credentialProvider,
+      {
+        baseEmail: config.email.baseEmail,
+        imap: config.email.imap,
+        smtp: config.email.smtp,
+      }
+    );
+  }
+
   const adapters: CoreAdapters = {
-    events: createConsoleEventEmitter(), // We might want to silent this later and use Clack spinners
+    events: createConsoleEventEmitter(),
     screenshots: createFsScreenshotStorage(),
-    credentials: createFileCredentialProvider(),
+    credentials: credentialProvider,
     state: createFsStateStorage(),
     interaction: {
       askUser: async () => '',
@@ -67,6 +97,7 @@ export async function runCommand(args: { url: string; desc: string }): Promise<n
     },
     billing: null,
     ai: createAnthropicAiProvider(),
+    skills: skills.listConfigured().length > 0 ? skills : null,
   };
 
   s.message(`Running tests against ${args.url}...`);

@@ -120,6 +120,8 @@ export interface AIProvider {
 /**
  * All adapters combined — passed to core runner functions.
  */
+import type { SkillRegistry } from './skills/types.js'
+
 export interface CoreAdapters {
   events: EventEmitter
   screenshots: ScreenshotStorage
@@ -128,4 +130,5 @@ export interface CoreAdapters {
   interaction: UserInteraction
   billing: BillingProvider | null // null = skip billing (CLI mode)
   ai: AIProvider
+  skills: SkillRegistry | null   // null = no skills configured
 }

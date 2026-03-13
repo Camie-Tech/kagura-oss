@@ -18,7 +18,7 @@ export async function uiCommand() {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const uiHtmlPath = path.resolve(__dirname, '../ui/index.html');
 
-  app.get('/', async (req, res) => {
+  app.get('/', async (_req, res) => {
     try {
       const html = await fs.readFile(uiHtmlPath, 'utf8');
       res.setHeader('Content-Type', 'text/html');
@@ -29,7 +29,7 @@ export async function uiCommand() {
   });
 
   // API to list all local runs
-  app.get('/api/runs', async (req, res) => {
+  app.get('/api/runs', async (_req, res) => {
     try {
       await fs.mkdir(stateDir, { recursive: true });
       const files = await fs.readdir(stateDir);

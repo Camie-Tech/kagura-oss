@@ -2,7 +2,7 @@ import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import figlet from 'figlet';
 import open from 'open';
-import { saveCliConfig, loadCliConfig } from '../config/config.js';
+import { saveCliConfig, loadCliConfig, type EmailConfig } from '../config/config.js';
 import https from 'node:https';
 import http from 'node:http';
 
@@ -181,5 +181,142 @@ export async function setupCommand() {
     );
   }
 
+  // --- EMAIL SKILL (optional, OSS local mode only) ---
+  if (runMode === 'local') {
+    const emailConfig = await promptEmailSetup(currentConfig.email);
+    if (emailConfig) {
+      const updated = await loadCliConfig();
+      await saveCliConfig({ ...updated, email: emailConfig });
+    }
+  }
+
   p.outro(pc.green('You are all set! Run ') + pc.bold(pc.white('kagura run --url <url> --desc "<desc>"')) + pc.green(' to start testing.'));
+}
+
+// ── Email Skill Setup ────────────────────────────────────────────────────
+
+async function promptEmailSetup(existing?: EmailConfig): Promise<EmailConfig | null> {
+  p.log.message('');
+  p.log.step(pc.red(pc.bold('Email Skill (Optional)')));
+  p.log.message(pc.gray('Configure email to let the agent handle signup/verification flows.'));
+  p.log.message(pc.gray('Uses the +N trick: daniel@site.com → daniel+1@site.com, daniel+2@site.com, etc.'));
+  p.log.message('');
+
+  const wantEmail = await p.confirm({
+    message: 'Configure email skill for automated auth flows?',
+    initialValue: Boolean(existing),
+  });
+
+  if (p.isCancel(wantEmail) || !wantEmail) return null;
+
+  const baseEmail = await p.text({
+    message: 'Base email address (all +N variations go to this inbox):',
+    placeholder: 'daniel@camie.tech',
+    initialValue: existing?.baseEmail,
+    validate(value) {
+      if (!value) return 'Email is required';
+      if (!value.includes('@')) return 'Must be a valid email address';
+    },
+  });
+  if (p.isCancel(baseEmail)) return null;
+
+  p.log.message('');
+  p.log.step(pc.red(pc.bold('IMAP Configuration')));
+  p.log.message(pc.gray('Required for reading confirmation/verification emails.'));
+
+  const imapHost = await p.text({
+    message: 'IMAP server host:',
+    placeholder: 'imap.gmail.com',
+    initialValue: existing?.imap?.host,
+    validate(v) { if (!v) return 'Required'; },
+  });
+  if (p.isCancel(imapHost)) return null;
+
+  const imapPort = await p.text({
+    message: 'IMAP port:',
+    placeholder: '993',
+    initialValue: String(existing?.imap?.port ?? 993),
+    validate(v) { if (!v || isNaN(Number(v))) return 'Must be a number'; },
+  });
+  if (p.isCancel(imapPort)) return null;
+
+  const imapUser = await p.text({
+    message: 'IMAP username (usually your email):',
+    placeholder: baseEmail as string,
+    initialValue: existing?.imap?.auth?.user ?? (baseEmail as string),
+    validate(v) { if (!v) return 'Required'; },
+  });
+  if (p.isCancel(imapUser)) return null;
+
+  const imapPass = await p.password({
+    message: 'IMAP password or app password:',
+    validate(v) { if (!v) return 'Required'; },
+  });
+  if (p.isCancel(imapPass)) return null;
+
+  // SMTP is optional
+  const wantSmtp = await p.confirm({
+    message: 'Configure SMTP for sending emails? (optional)',
+    initialValue: Boolean(existing?.smtp),
+  });
+  if (p.isCancel(wantSmtp)) return null;
+
+  let smtp: EmailConfig['smtp'] = undefined;
+
+  if (wantSmtp) {
+    const smtpHost = await p.text({
+      message: 'SMTP server host:',
+      placeholder: 'smtp.gmail.com',
+      initialValue: existing?.smtp?.host,
+      validate(v) { if (!v) return 'Required'; },
+    });
+    if (p.isCancel(smtpHost)) return null;
+
+    const smtpPort = await p.text({
+      message: 'SMTP port:',
+      placeholder: '587',
+      initialValue: String(existing?.smtp?.port ?? 587),
+      validate(v) { if (!v || isNaN(Number(v))) return 'Must be a number'; },
+    });
+    if (p.isCancel(smtpPort)) return null;
+
+    const smtpUser = await p.text({
+      message: 'SMTP username:',
+      placeholder: baseEmail as string,
+      initialValue: existing?.smtp?.auth?.user ?? (baseEmail as string),
+      validate(v) { if (!v) return 'Required'; },
+    });
+    if (p.isCancel(smtpUser)) return null;
+
+    const smtpPass = await p.password({
+      message: 'SMTP password:',
+      validate(v) { if (!v) return 'Required'; },
+    });
+    if (p.isCancel(smtpPass)) return null;
+
+    smtp = {
+      host: smtpHost as string,
+      port: Number(smtpPort),
+      secure: Number(smtpPort) === 465,
+      auth: { user: smtpUser as string, pass: smtpPass as string },
+    };
+  }
+
+  const emailConfig: EmailConfig = {
+    baseEmail: baseEmail as string,
+    imap: {
+      host: imapHost as string,
+      port: Number(imapPort),
+      secure: Number(imapPort) === 993,
+      auth: { user: imapUser as string, pass: imapPass as string },
+    },
+    ...(smtp ? { smtp } : {}),
+  };
+
+  p.note(
+    `${pc.gray('Base Email:')} ${pc.green(emailConfig.baseEmail)}\n${pc.gray('IMAP:')} ${pc.cyan(`${emailConfig.imap.host}:${emailConfig.imap.port}`)}\n${smtp ? `${pc.gray('SMTP:')} ${pc.cyan(`${smtp.host}:${smtp.port}`)}` : `${pc.gray('SMTP:')} ${pc.yellow('Not configured')}`}`,
+    'Email Skill Configured'
+  );
+
+  return emailConfig;
 }
