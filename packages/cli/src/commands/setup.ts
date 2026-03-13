@@ -183,17 +183,20 @@ export async function setupCommand() {
     p.log.message(pc.gray(`Key received: ${maskApiKey(keyString)}`));
     
     const s = p.spinner();
-    s.start('Validating API key format...');
+    s.start('Verifying API key with Kagura Cloud...');
     
-    if (keyString.length < 20) {
-      s.stop('Validation failed');
-      p.cancel(pc.red('Error: Invalid API key - too short.'));
+    const isValid = await verifyKaguraKey(keyString, apiUrl);
+    
+    if (!isValid) {
+      s.stop('Verification failed');
+      p.cancel(pc.red('Error: Invalid API key or server unreachable.'));
+      p.log.message(pc.gray('Make sure your API key is correct and not revoked.'));
       process.exit(1);
     }
     
     s.message('Saving configuration locally...');
     await saveCliConfig({ ...currentConfig, mode: 'cloud', apiKey: keyString, apiUrl });
-    s.stop('Configuration saved');
+    s.stop('API key verified and saved');
 
     p.note(
       `${pc.gray('Mode:')} ${pc.cyan('Kagura Cloud')}\n${pc.gray('API Key:')} ${pc.green(maskApiKey(keyString))}\n${pc.gray('API URL:')} ${pc.blue(apiUrl)}\n${pc.gray('Configured:')} ${pc.white('~/.kagura/config.json')}`,
