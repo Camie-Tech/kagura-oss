@@ -51,7 +51,34 @@ export async function executeSingleAction(page: Page, action: PlaywrightAction):
 
     case 'click': {
       if (!action.selector) throw new Error('Click action requires selector')
+      
+      // Check if this looks like a submit/login button that might trigger navigation
+      const isLikelySubmit = action.selector.toLowerCase().includes('submit') ||
+                             action.selector.toLowerCase().includes('login') ||
+                             action.selector.toLowerCase().includes('sign') ||
+                             action.description?.toLowerCase().includes('submit') ||
+                             action.description?.toLowerCase().includes('login') ||
+                             action.description?.toLowerCase().includes('sign in')
+      
+      const currentUrl = page.url()
       await page.click(action.selector, { timeout: action.timeout ?? 10000 })
+      
+      // For submit-like buttons, wait for navigation or network idle
+      if (isLikelySubmit) {
+        try {
+          // Wait up to 10 seconds for URL to change OR network to settle
+          await Promise.race([
+            page.waitForURL((url) => url.href !== currentUrl, { timeout: 10000 }),
+            page.waitForLoadState('networkidle', { timeout: 10000 }),
+          ])
+        } catch {
+          // If neither happens, just wait a bit for any async updates
+          await page.waitForTimeout(2000)
+        }
+      } else {
+        // For regular clicks, brief wait for any animations/updates
+        await page.waitForTimeout(500)
+      }
       return
     }
 
