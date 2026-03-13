@@ -135,7 +135,10 @@ export async function runCommand(args: { url: string; desc: string; prompt?: str
       runId,
       targetUrl: args.url,
       description: fullDescription,
-      config: { maxIterations: args.prompt ? 10 : 1 }, // More iterations for detailed prompts
+      config: { 
+        maxIterations: args.prompt ? 10 : 1, // More iterations for detailed prompts
+        skipCredentialCheck: Boolean(args.prompt), // Skip cred check if prompt has instructions
+      },
     });
 
     s.stop('Execution finished');

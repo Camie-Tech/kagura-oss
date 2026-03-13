@@ -42,6 +42,8 @@ export type AgenticRunnerConfig = {
   deploymentMode?: DeploymentMode
   /** Test runner configuration. */
   runnerConfig?: RunnerTestConfig
+  /** Skip credential check — useful when credentials are provided in the prompt. */
+  skipCredentialCheck?: boolean
 }
 
 /**
@@ -100,9 +102,10 @@ export async function runAgenticTest(params: {
   state = touchState({ ...state, currentUrl: state.currentUrl || targetUrl })
   await adapters.state.save(runId, state)
 
-  // Credentials: attempt to fetch from adapter. If missing, pause.
+  // Credentials: attempt to fetch from adapter. If missing, pause (unless skipCredentialCheck).
+  const skipCredCheck = config.skipCredentialCheck ?? false
   const creds = await adapters.credentials.getForUrl(userId ?? null, targetUrl).catch(() => null)
-  if (!creds || creds.length === 0) {
+  if (!skipCredCheck && (!creds || creds.length === 0)) {
     const message = `Missing credentials for ${targetUrl}. Provide credentials to continue.`
 
     adapters.events.emit({
@@ -144,15 +147,17 @@ export async function runAgenticTest(params: {
   }
 
   // Stash credential presence in state (never store password itself)
-  const primaryCred = creds[0]
-  state = touchState({
-    ...state,
-    metadata: {
-      ...(state.metadata || {}),
-      credentials: { present: true, email: primaryCred?.values?.email || null },
-    },
-  })
-  await adapters.state.save(runId, state)
+  const primaryCred = creds?.[0]
+  if (primaryCred) {
+    state = touchState({
+      ...state,
+      metadata: {
+        ...(state.metadata || {}),
+        credentials: { present: true, email: primaryCred.values?.email || null },
+      },
+    })
+    await adapters.state.save(runId, state)
+  }
 
   let lastError: string | null = null
 
