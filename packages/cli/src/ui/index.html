@@ -11,21 +11,31 @@
       --border: #27272a;
       --text: #fafafa;
       --text-muted: #a1a1aa;
-      --primary: #ef4444; /* Kagura Red */
+      --text-secondary: #71717a;
+      --primary: #ef4444;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #f59e0b;
     }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg);
       color: var(--text);
+      line-height: 1.5;
     }
     header {
       border-bottom: 1px solid var(--border);
       padding: 1rem 2rem;
       display: flex;
       align-items: center;
-      gap: 1rem;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 100;
     }
     header h1 {
       margin: 0;
@@ -38,71 +48,280 @@
     .red-gate { color: var(--primary); }
     main {
       padding: 2rem;
-      max-w: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
     }
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 12px;
       padding: 1.5rem;
       margin-bottom: 1rem;
     }
     .run-list {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.75rem;
     }
     .run-item {
       display: flex;
       justify-content: space-between;
-      padding: 1rem;
+      align-items: center;
+      padding: 1rem 1.25rem;
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
       background: rgba(255,255,255,0.02);
       cursor: pointer;
+      transition: all 0.15s ease;
     }
-    .run-item:hover { background: rgba(255,255,255,0.05); }
+    .run-item:hover { 
+      background: rgba(255,255,255,0.05);
+      border-color: var(--text-secondary);
+    }
+    .run-info { display: flex; flex-direction: column; gap: 0.25rem; }
+    .run-id { font-weight: 500; font-family: monospace; font-size: 0.9rem; }
+    .run-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 1rem; }
     .status-badge {
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
       font-size: 0.75rem;
       font-weight: 600;
       text-transform: uppercase;
+      letter-spacing: 0.025em;
     }
-    .status-completed { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-    .status-failed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .status-passed, .status-completed, .status-success { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+    .status-failed, .status-error { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .status-running { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    
     #detail-view { display: none; }
     .back-btn {
-      background: none; border: none; color: var(--text-muted);
-      cursor: pointer; padding: 0; margin-bottom: 1rem; font-size: 0.875rem;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      padding: 0.5rem 1rem;
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.15s ease;
     }
-    .back-btn:hover { color: var(--text); }
+    .back-btn:hover { background: rgba(255,255,255,0.15); }
+    
+    /* Detail View Styles */
+    .detail-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .detail-title { 
+      font-size: 1.5rem; 
+      font-weight: 600; 
+      margin: 0 0 0.5rem 0;
+    }
+    .detail-url {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      word-break: break-all;
+    }
+    .stats-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      min-width: 120px;
+    }
+    .stat-value { font-size: 1.75rem; font-weight: 700; }
+    .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-success { color: var(--success); }
+    .stat-error { color: var(--error); }
+    
+    /* Steps Timeline */
+    .steps-section { margin-top: 2rem; }
+    .steps-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
+    .step-item {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .step-item:last-child { border-bottom: none; }
+    .step-number {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+    .step-success { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+    .step-failed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .step-content { flex: 1; min-width: 0; }
+    .step-action {
+      font-size: 0.75rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.25rem;
+    }
+    .step-description { font-weight: 500; margin-bottom: 0.25rem; }
+    .step-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 1rem; flex-wrap: wrap; }
+    .step-error { 
+      margin-top: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      background: rgba(239, 68, 68, 0.1);
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: #fca5a5;
+    }
+    
+    /* Screenshots Gallery */
+    .screenshots-section { margin-top: 2rem; }
+    .screenshots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+    }
+    .screenshot-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .screenshot-card:hover {
+      border-color: var(--text-secondary);
+      transform: translateY(-2px);
+    }
+    .screenshot-img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      object-position: top;
+      background: #000;
+    }
+    .screenshot-info {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+    }
+    .screenshot-label {
+      font-size: 0.8rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .screenshot-step {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+    
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .modal.active { display: flex; }
+    .modal-content {
+      max-width: 95vw;
+      max-height: 95vh;
+    }
+    .modal-img {
+      max-width: 100%;
+      max-height: 90vh;
+      border-radius: 8px;
+    }
+    .modal-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-close:hover { background: rgba(255,255,255,0.2); }
+    
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+    .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
   </style>
 </head>
 <body>
   <header>
-    <h1><span class="red-gate">⛩</span> Kagura Local</h1>
+    <h1><span class="red-gate">⛩</span> Kagura Local Dashboard</h1>
+    <div style="color: var(--text-muted); font-size: 0.8rem;">Local Test Results</div>
   </header>
   
   <main>
     <div id="list-view">
-      <h2 style="margin-top:0">Recent Local Traces</h2>
-      <p style="color: var(--text-muted); margin-bottom: 2rem;">Viewing test results from ~/.kagura/state</p>
+      <h2 style="margin-top:0; margin-bottom: 0.5rem;">Test Runs</h2>
+      <p style="color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem;">
+        Viewing test results from <code style="background: rgba(255,255,255,0.1); padding: 0.15rem 0.4rem; border-radius: 4px;">~/.kagura/state</code>
+      </p>
       <div class="run-list" id="runs-container">
-        <!-- populated via JS -->
+        <div class="empty-state">
+          <div class="empty-icon">🔄</div>
+          <p>Loading test runs...</p>
+        </div>
       </div>
     </div>
 
     <div id="detail-view">
-      <button class="back-btn" onclick="showList()">← Back to list</button>
-      <div class="card" id="detail-card">
-        <!-- populated via JS -->
-      </div>
+      <button class="back-btn" onclick="showList()">← Back to runs</button>
+      <div id="detail-content"></div>
     </div>
   </main>
+  
+  <!-- Image Modal -->
+  <div class="modal" id="image-modal" onclick="closeModal()">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <img class="modal-img" id="modal-img" src="" alt="Screenshot">
+    </div>
+  </div>
 
   <script>
+    // Convert file:// URLs to served URLs
+    function getImageUrl(fileUrl) {
+      if (!fileUrl) return '';
+      // Extract filename from file:// URL
+      const parts = fileUrl.split(/[/\\]/);
+      const filename = parts[parts.length - 1];
+      const runId = parts[parts.length - 2];
+      return `/api/screenshots/${runId}/${filename}`;
+    }
+    
     async function loadRuns() {
       try {
         const res = await fetch('/api/runs');
@@ -110,44 +329,136 @@
         
         const container = document.getElementById('runs-container');
         if (runs.length === 0) {
-          container.innerHTML = '<p style="color:var(--text-muted)">No local traces found. Run a test first!</p>';
+          container.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">🧪</div>
+              <p>No test runs found yet.</p>
+              <p style="font-size: 0.9rem;">Run <code style="background: rgba(255,255,255,0.1); padding: 0.15rem 0.4rem; border-radius: 4px;">kagura run --url &lt;url&gt; --desc "..."</code> to create your first test.</p>
+            </div>
+          `;
           return;
         }
 
-        container.innerHTML = runs.map(run => `
-          <div class="run-item" onclick="viewRun('${run.id}')">
-            <div>
-              <div style="font-weight: 500; margin-bottom: 0.25rem;">${run.id}</div>
-              <div style="font-size: 0.875rem; color: var(--text-muted)">${new Date(run.timestamp).toLocaleString()}</div>
+        container.innerHTML = runs.map(run => {
+          const statusClass = run.status === 'passed' || run.status === 'success' || run.status === 'completed' 
+            ? 'passed' 
+            : run.status === 'running' ? 'running' : 'failed';
+          return `
+            <div class="run-item" onclick="viewRun('${run.id}')">
+              <div class="run-info">
+                <div class="run-id">${run.id}</div>
+                <div class="run-meta">
+                  <span>📅 ${new Date(run.timestamp).toLocaleString()}</span>
+                  ${run.url ? `<span>🔗 ${run.url}</span>` : ''}
+                </div>
+              </div>
+              <span class="status-badge status-${statusClass}">${run.status || 'Completed'}</span>
             </div>
-            <div style="display:flex; align-items:center;">
-              <span class="status-badge status-${run.status || 'completed'}">${run.status || 'Completed'}</span>
-            </div>
-          </div>
-        `).join('');
+          `;
+        }).join('');
       } catch (err) {
-        document.getElementById('runs-container').innerHTML = '<p style="color:#f87171">Failed to load traces.</p>';
+        document.getElementById('runs-container').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">❌</div>
+            <p style="color: #f87171;">Failed to load test runs.</p>
+          </div>
+        `;
       }
     }
 
     async function viewRun(id) {
       document.getElementById('list-view').style.display = 'none';
       document.getElementById('detail-view').style.display = 'block';
-      const card = document.getElementById('detail-card');
-      card.innerHTML = '<p>Loading trace data...</p>';
+      const content = document.getElementById('detail-content');
+      content.innerHTML = '<div class="empty-state"><div class="empty-icon">🔄</div><p>Loading test details...</p></div>';
 
       try {
         const res = await fetch(`/api/runs/${id}`);
         const data = await res.json();
         
-        card.innerHTML = `
-          <h2 style="margin-top:0; font-family: monospace;">${id}</h2>
-          <pre style="background: rgba(0,0,0,0.5); padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.875rem;">
-${JSON.stringify(data, null, 2)}
-          </pre>
+        const steps = data.steps || [];
+        const screenshots = data.screenshots || [];
+        const passedSteps = steps.filter(s => s.status === 'success').length;
+        const failedSteps = steps.filter(s => s.status === 'failed').length;
+        const status = failedSteps > 0 ? 'failed' : 'passed';
+        const duration = data.updatedAt && data.startedAt 
+          ? Math.round((new Date(data.updatedAt) - new Date(data.startedAt)) / 1000)
+          : 0;
+        
+        content.innerHTML = `
+          <div class="card">
+            <div class="detail-header">
+              <div>
+                <h2 class="detail-title">${status === 'passed' ? '✅' : '❌'} Test ${status === 'passed' ? 'Passed' : 'Failed'}</h2>
+                <div class="detail-url">🔗 ${data.currentUrl || 'Unknown URL'}</div>
+              </div>
+              <span class="status-badge status-${status}">${status}</span>
+            </div>
+            
+            <div class="stats-row">
+              <div class="stat-card">
+                <div class="stat-value">${steps.length}</div>
+                <div class="stat-label">Total Steps</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value stat-success">${passedSteps}</div>
+                <div class="stat-label">Passed</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value stat-error">${failedSteps}</div>
+                <div class="stat-label">Failed</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${duration}s</div>
+                <div class="stat-label">Duration</div>
+              </div>
+            </div>
+          </div>
+          
+          ${screenshots.length > 0 ? `
+            <div class="screenshots-section">
+              <h3 class="steps-title">📸 Screenshots (${screenshots.length})</h3>
+              <div class="screenshots-grid">
+                ${screenshots.map((ss, i) => `
+                  <div class="screenshot-card" onclick="openModal('${getImageUrl(ss.url)}')">
+                    <img class="screenshot-img" src="${getImageUrl(ss.url)}" alt="${ss.label || 'Screenshot'}" loading="lazy" onerror="this.style.display='none'">
+                    <div class="screenshot-info">
+                      <div class="screenshot-label">${ss.label || 'Screenshot ' + (i + 1)}</div>
+                      <div class="screenshot-step">Step ${ss.stepIndex !== undefined ? ss.stepIndex + 1 : i + 1}</div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+          
+          <div class="steps-section">
+            <h3 class="steps-title">📋 Test Steps (${steps.length})</h3>
+            ${steps.map((step, i) => `
+              <div class="step-item">
+                <div class="step-number ${step.status === 'success' ? 'step-success' : 'step-failed'}">
+                  ${step.status === 'success' ? '✓' : '✗'}
+                </div>
+                <div class="step-content">
+                  <div class="step-action">${step.action || 'action'}</div>
+                  <div class="step-description">${step.description || 'Step ' + (i + 1)}</div>
+                  <div class="step-meta">
+                    <span>⏱️ ${step.durationMs || step.duration_ms || 0}ms</span>
+                    ${step.screenshotUrl || step.screenshot_url ? `<span style="color: var(--primary); cursor: pointer;" onclick="openModal('${getImageUrl(step.screenshotUrl || step.screenshot_url)}')">📷 View screenshot</span>` : ''}
+                  </div>
+                  ${step.errorMessage || step.error ? `<div class="step-error">⚠️ ${step.errorMessage || step.error}</div>` : ''}
+                </div>
+              </div>
+            `).join('')}
+          </div>
         `;
       } catch (e) {
-        card.innerHTML = '<p style="color:#f87171">Failed to load trace details.</p>';
+        content.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">❌</div>
+            <p style="color: #f87171;">Failed to load test details.</p>
+          </div>
+        `;
       }
     }
 
@@ -155,6 +466,20 @@ ${JSON.stringify(data, null, 2)}
       document.getElementById('detail-view').style.display = 'none';
       document.getElementById('list-view').style.display = 'block';
     }
+    
+    function openModal(src) {
+      document.getElementById('modal-img').src = src;
+      document.getElementById('image-modal').classList.add('active');
+    }
+    
+    function closeModal() {
+      document.getElementById('image-modal').classList.remove('active');
+    }
+    
+    // Close modal on escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
 
     loadRuns();
   </script>

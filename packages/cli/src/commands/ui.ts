@@ -5,12 +5,13 @@ import open from 'open';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { kaguraStateDir } from '../config/paths.js';
+import { kaguraStateDir, kaguraScreenshotsDir } from '../config/paths.js';
 
 export async function uiCommand() {
   const app = express();
   const PORT = process.env.KAGURA_UI_PORT || 3005;
   const stateDir = kaguraStateDir();
+  const screenshotsDir = kaguraScreenshotsDir();
 
   app.use(cors());
 
@@ -39,19 +40,36 @@ export async function uiCommand() {
         files
           .filter(f => f.endsWith('.json'))
           .map(async (file) => {
-            const stat = await fs.stat(path.join(stateDir, file));
-            const id = file.replace('.json', '');
-            return {
-              id,
-              timestamp: stat.mtimeMs,
-              status: 'completed' // Mocking status for now until we parse the JSON
-            };
+            try {
+              const filePath = path.join(stateDir, file);
+              const stat = await fs.stat(filePath);
+              const id = file.replace('.json', '');
+              
+              // Parse the JSON to get actual status and URL
+              const raw = await fs.readFile(filePath, 'utf8');
+              const data = JSON.parse(raw);
+              
+              // Determine status from steps
+              const steps = data.steps || [];
+              const hasFailed = steps.some((s: any) => s.status === 'failed');
+              
+              return {
+                id,
+                timestamp: stat.mtimeMs,
+                status: hasFailed ? 'failed' : 'passed',
+                url: data.currentUrl || null,
+                stepsCount: steps.length,
+              };
+            } catch {
+              return null;
+            }
           })
       );
 
-      // Sort newest first
-      runs.sort((a, b) => b.timestamp - a.timestamp);
-      res.json(runs);
+      // Filter out nulls and sort newest first
+      const validRuns = runs.filter(r => r !== null);
+      validRuns.sort((a, b) => (b?.timestamp || 0) - (a?.timestamp || 0));
+      res.json(validRuns);
     } catch (err) {
       res.status(500).json({ error: 'Failed to read state directory' });
     }
@@ -69,6 +87,30 @@ export async function uiCommand() {
       res.json(JSON.parse(raw));
     } catch (err) {
       res.status(404).json({ error: 'Trace not found' });
+    }
+  });
+  
+  // Serve screenshots
+  app.get('/api/screenshots/:runId/:filename', async (req, res) => {
+    try {
+      const { runId, filename } = req.params;
+      // Sanitize
+      if (runId.includes('..') || filename.includes('..')) {
+        return res.status(400).send('Invalid path');
+      }
+      
+      const imgPath = path.join(screenshotsDir, runId, filename);
+      const data = await fs.readFile(imgPath);
+      
+      // Set content type based on extension
+      const ext = path.extname(filename).toLowerCase();
+      const contentType = ext === '.png' ? 'image/png' : ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+      
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+      res.send(data);
+    } catch (err) {
+      res.status(404).send('Screenshot not found');
     }
   });
 
