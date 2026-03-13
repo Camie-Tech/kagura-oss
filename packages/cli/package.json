@@ -22,7 +22,7 @@
     "cli"
   ],
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js || true",
+    "build": "tsc && mkdir -p dist/ui && cp src/ui/index.html dist/ui/ && chmod +x dist/index.js || true",
     "dev": "tsc --watch",
     "clean": "rm -rf dist tsconfig.tsbuildinfo",
     "typecheck": "tsc --noEmit",
