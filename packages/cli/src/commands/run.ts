@@ -17,8 +17,9 @@ import { createFsStateStorage } from '../adapters/fs-state.js';
 import { createFileCredentialProvider } from '../adapters/file-credentials.js';
 import { createAnthropicAiProvider } from '../adapters/anthropic-ai.js';
 
-export async function runCommand(args: { url: string; desc: string }): Promise<number> {
-  console.clear();
+export async function runCommand(args: { url: string; desc: string; prompt?: string }): Promise<number> {
+  // Don't clear screen — keep command history visible like OpenClaw
+  console.log('');
   
   const config = await loadCliConfig();
   
@@ -27,6 +28,9 @@ export async function runCommand(args: { url: string; desc: string }): Promise<n
 
   p.log.message(`${pc.gray('Target URL:')} ${pc.blue(args.url)}`);
   p.log.message(`${pc.gray('Objective:')}  ${pc.white(args.desc)}`);
+  if (args.prompt) {
+    p.log.message(`${pc.gray('Prompt:')}     ${pc.cyan('Custom instructions provided')}`);
+  }
   p.log.message('');
 
   // -----------------------------------------------------
@@ -86,13 +90,30 @@ export async function runCommand(args: { url: string; desc: string }): Promise<n
     );
   }
 
+  // Interactive user input handler
+  const askUser = async (question: string): Promise<string> => {
+    s.stop('Agent needs your input');
+    
+    const response = await p.text({
+      message: pc.yellow(question),
+      placeholder: 'Type your response...',
+    });
+    
+    if (p.isCancel(response)) {
+      return '';
+    }
+    
+    s.start('Continuing test...');
+    return response as string;
+  };
+
   const adapters: CoreAdapters = {
     events: createConsoleEventEmitter(),
     screenshots: createFsScreenshotStorage(),
     credentials: credentialProvider,
     state: createFsStateStorage(),
     interaction: {
-      askUser: async () => '',
+      askUser,
       isAborted: () => false,
     },
     billing: null,
@@ -103,12 +124,21 @@ export async function runCommand(args: { url: string; desc: string }): Promise<n
   s.message(`Running tests against ${args.url}...`);
 
   try {
+    // Combine description and prompt for the AI
+    // Make it very clear that credentials are provided and should be used directly
+    const fullDescription = args.prompt 
+      ? `${args.desc}\n\n## Instructions (FOLLOW EXACTLY):\n${args.prompt}\n\nIMPORTANT: If credentials (email, password, etc.) are provided above, use them directly. Do NOT ask the user for credentials that are already specified in the instructions.`
+      : args.desc;
+
     const res = await runAgenticTest({
       adapters,
       runId,
       targetUrl: args.url,
-      description: args.desc,
-      config: { maxIterations: 1 }, // Keep it short for CLI testing
+      description: fullDescription,
+      config: { 
+        maxIterations: args.prompt ? 10 : 1, // More iterations for detailed prompts
+        skipCredentialCheck: Boolean(args.prompt), // Skip cred check if prompt has instructions
+      },
     });
 
     s.stop('Execution finished');

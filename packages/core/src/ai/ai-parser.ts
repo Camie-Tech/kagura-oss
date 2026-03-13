@@ -45,12 +45,20 @@ Available actions:
 - navigate: Go to a URL { "action": "navigate", "url": "...", "description": "..." }
 - click: Click an element { "action": "click", "selector": "...", "description": "..." }
 - type: Type into an input { "action": "type", "selector": "...", "text": "...", "description": "..." }
-- wait: Wait for element { "action": "wait", "selector": "...", "timeout": 5000, "description": "..." }
+- wait: Wait for element OR navigation { "action": "wait", "selector": "...", "text": "...", "timeout": 10000, "description": "..." }
+  - For element: use "selector" to wait for element to appear
+  - For navigation: use "text" with URL pattern (e.g., "text": "dashboard" waits for URL containing "dashboard")
+  - For URL change: use "text": "!/login" to wait for URL to NOT contain "login"
+  - For network idle: omit both selector and text to wait for page load
 - assert: Verify something { "action": "assert", "type": "text|visible|hidden|url|title", "selector": "...", "expected": "...", "description": "..." }
 - screenshot: Take screenshot { "action": "screenshot", "description": "..." }
 - scroll: Scroll page { "action": "scroll", "selector": "...", "description": "..." }
 - hover: Hover over element { "action": "hover", "selector": "...", "description": "..." }
 - select: Select dropdown option { "action": "select", "selector": "...", "text": "...", "description": "..." }
+
+IMPORTANT for login flows:
+- After clicking login/submit, ALWAYS add: { "action": "wait", "text": "!/login", "timeout": 15000, "description": "Wait for navigation away from login page" }
+- This waits for the URL to change, confirming successful login before any assertions
 
 Example selectors:
 - button:has-text("Login")

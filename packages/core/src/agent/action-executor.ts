@@ -51,7 +51,41 @@ export async function executeSingleAction(page: Page, action: PlaywrightAction):
 
     case 'click': {
       if (!action.selector) throw new Error('Click action requires selector')
+      
+      // Check if this looks like a submit/login button that might trigger navigation
+      const selectorLower = action.selector.toLowerCase()
+      const descLower = action.description?.toLowerCase() || ''
+      const isLikelySubmit = selectorLower.includes('submit') ||
+                             selectorLower.includes('login') ||
+                             selectorLower.includes('sign') ||
+                             selectorLower.includes('button') ||
+                             descLower.includes('submit') ||
+                             descLower.includes('login') ||
+                             descLower.includes('sign in') ||
+                             descLower.includes('sign-in') ||
+                             descLower.includes('log in')
+      
+      const currentUrl = page.url()
       await page.click(action.selector, { timeout: action.timeout ?? 10000 })
+      
+      // For submit-like buttons, wait for navigation
+      if (isLikelySubmit) {
+        try {
+          // Wait up to 15 seconds for URL to actually change
+          await page.waitForURL((url) => url.href !== currentUrl, { timeout: 15000 })
+        } catch {
+          // URL didn't change — maybe it's a SPA, wait for network idle instead
+          try {
+            await page.waitForLoadState('networkidle', { timeout: 5000 })
+          } catch {
+            // Last resort: fixed wait
+            await page.waitForTimeout(3000)
+          }
+        }
+      } else {
+        // For regular clicks, brief wait for any animations/updates
+        await page.waitForTimeout(500)
+      }
       return
     }
 
@@ -70,8 +104,31 @@ export async function executeSingleAction(page: Page, action: PlaywrightAction):
     }
 
     case 'wait': {
-      if (!action.selector) throw new Error('Wait action requires selector')
-      await page.waitForSelector(action.selector, { timeout: action.timeout ?? 10000, state: 'visible' })
+      const timeoutMs = action.timeout ?? 10000
+      
+      // If selector provided, wait for element
+      if (action.selector) {
+        await page.waitForSelector(action.selector, { timeout: timeoutMs, state: 'visible' })
+        return
+      }
+      
+      // If URL pattern provided (in text field), wait for URL change
+      if (action.text) {
+        const urlPattern = action.text
+        // Wait for URL to contain or not contain the pattern
+        if (urlPattern.startsWith('!') || urlPattern.startsWith('not ')) {
+          // Wait for URL to NOT contain this pattern (e.g., "!login" or "not /auth")
+          const pattern = urlPattern.replace(/^(!|not\s+)/, '')
+          await page.waitForURL((url) => !url.href.includes(pattern), { timeout: timeoutMs })
+        } else {
+          // Wait for URL to contain this pattern
+          await page.waitForURL((url) => url.href.includes(urlPattern), { timeout: timeoutMs })
+        }
+        return
+      }
+      
+      // Default: wait for network to be idle (navigation complete)
+      await page.waitForLoadState('networkidle', { timeout: timeoutMs })
       return
     }
 
