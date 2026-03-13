@@ -24,7 +24,8 @@ export async function uiCommand() {
       res.setHeader('Content-Type', 'text/html');
       res.send(html);
     } catch (err) {
-      res.status(500).send('Error loading local dashboard UI. Did you run the build step?');
+      console.error(`Failed to load UI from: ${uiHtmlPath}`, err);
+      res.status(500).send(`Error loading local dashboard UI. Path tried: ${uiHtmlPath}`);
     }
   });
 
