@@ -5,6 +5,9 @@ import open from 'open';
 import { saveCliConfig, loadCliConfig, type EmailConfig } from '../config/config.js';
 import https from 'node:https';
 import http from 'node:http';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 
 function maskApiKey(key: string): string {
   if (!key || key.length < 15) return '*'.repeat(key.length);
