@@ -12,7 +12,13 @@ function usage() {
 Usage:
   kagura setup                                  Initialize the CLI and authenticate
   kagura ui                                     Launch the local visualization dashboard
-  kagura run --url <targetUrl> --desc "<test description>"
+  kagura run --url <targetUrl> --desc "<description>" [--prompt "<instructions>"]
+
+Options:
+  --url      Target URL to test (required)
+  --desc     Short description of the test (required)  
+  --prompt   Detailed step-by-step instructions for the AI agent (optional)
+             Example: --prompt "1. Click Login 2. Enter email: test@test.com 3. Verify dashboard"
 `);
 }
 
@@ -22,6 +28,7 @@ function parseArgs(argv: string[]) {
     const a = argv[i];
     if (a === '--url') args.url = argv[++i];
     else if (a === '--desc') args.desc = argv[++i];
+    else if (a === '--prompt') args.prompt = argv[++i];
     else if (a === '--help' || a === '-h') args.help = '1';
   }
   return args;
@@ -75,7 +82,11 @@ async function main() {
       process.exit(1);
     }
 
-    const code = await runCommand({ url: parsed.url, desc: parsed.desc });
+    const code = await runCommand({ 
+      url: parsed.url, 
+      desc: parsed.desc,
+      prompt: parsed.prompt,
+    });
     process.exit(code);
   }
 

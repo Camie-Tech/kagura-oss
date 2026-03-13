@@ -17,7 +17,7 @@ import { createFsStateStorage } from '../adapters/fs-state.js';
 import { createFileCredentialProvider } from '../adapters/file-credentials.js';
 import { createAnthropicAiProvider } from '../adapters/anthropic-ai.js';
 
-export async function runCommand(args: { url: string; desc: string }): Promise<number> {
+export async function runCommand(args: { url: string; desc: string; prompt?: string }): Promise<number> {
   console.clear();
   
   const config = await loadCliConfig();
@@ -27,6 +27,9 @@ export async function runCommand(args: { url: string; desc: string }): Promise<n
 
   p.log.message(`${pc.gray('Target URL:')} ${pc.blue(args.url)}`);
   p.log.message(`${pc.gray('Objective:')}  ${pc.white(args.desc)}`);
+  if (args.prompt) {
+    p.log.message(`${pc.gray('Prompt:')}     ${pc.cyan('Custom instructions provided')}`);
+  }
   p.log.message('');
 
   // -----------------------------------------------------
@@ -103,12 +106,17 @@ export async function runCommand(args: { url: string; desc: string }): Promise<n
   s.message(`Running tests against ${args.url}...`);
 
   try {
+    // Combine description and prompt for the AI
+    const fullDescription = args.prompt 
+      ? `${args.desc}\n\nInstructions:\n${args.prompt}`
+      : args.desc;
+
     const res = await runAgenticTest({
       adapters,
       runId,
       targetUrl: args.url,
-      description: args.desc,
-      config: { maxIterations: 1 }, // Keep it short for CLI testing
+      description: fullDescription,
+      config: { maxIterations: args.prompt ? 10 : 1 }, // More iterations for detailed prompts
     });
 
     s.stop('Execution finished');
