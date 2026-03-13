@@ -49,7 +49,8 @@ function verifyAnthropicFormat(key: string): boolean {
 }
 
 export async function setupCommand() {
-  console.clear();
+  // Don't clear screen — keep command history visible
+  console.log('');
   
   const logoText = figlet.textSync('KAGURA', { font: 'ANSI Shadow' });
   const version = require('../../package.json').version;

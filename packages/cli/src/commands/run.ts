@@ -18,7 +18,8 @@ import { createFileCredentialProvider } from '../adapters/file-credentials.js';
 import { createAnthropicAiProvider } from '../adapters/anthropic-ai.js';
 
 export async function runCommand(args: { url: string; desc: string; prompt?: string }): Promise<number> {
-  console.clear();
+  // Don't clear screen — keep command history visible like OpenClaw
+  console.log('');
   
   const config = await loadCliConfig();
   
