@@ -3,6 +3,7 @@
 import { runCommand } from './commands/run.js';
 import { setupCommand } from './commands/setup.js';
 import { uiCommand } from './commands/ui.js';
+import { modeCommand } from './commands/mode.js';
 import { loadCliConfig } from './config/config.js';
 import pc from 'picocolors';
 
@@ -11,6 +12,8 @@ function usage() {
 
 Usage:
   kagura setup                                  Initialize the CLI and authenticate
+  kagura mode                                   Show current mode (local/cloud)
+  kagura mode <local|cloud>                     Switch between local and cloud mode
   kagura ui                                     Launch the local visualization dashboard
   kagura run --url <targetUrl> --desc "<description>" [--prompt "<instructions>"]
 
@@ -51,6 +54,11 @@ async function main() {
 
   if (cmd === 'ui') {
     await uiCommand();
+    return;
+  }
+
+  if (cmd === 'mode') {
+    await modeCommand({ mode: argv[1] });
     return;
   }
 
