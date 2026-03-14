@@ -88,9 +88,9 @@ async function makeApiRequest<T>(
 }
 
 /**
- * Trigger a published test by ID
+ * Trigger published tests by ID(s)
  */
-export async function triggerCommand(args: { testId?: string; groupId?: string; wait?: boolean }): Promise<number> {
+export async function triggerCommand(args: { testIds?: string[]; groupId?: string; wait?: boolean }): Promise<number> {
   console.log('');
   
   const config = await loadCliConfig();
@@ -108,7 +108,7 @@ export async function triggerCommand(args: { testId?: string; groupId?: string; 
     return 1;
   }
 
-  if (!args.testId && !args.groupId) {
+  if ((!args.testIds || args.testIds.length === 0) && !args.groupId) {
     p.log.error(pc.red('Either --test-id or --group-id is required.'));
     return 1;
   }
@@ -119,9 +119,16 @@ export async function triggerCommand(args: { testId?: string; groupId?: string; 
   s.start('Triggering test run...');
 
   const body: Record<string, any> = {};
-  if (args.testId) {
-    body.testIds = [args.testId];
-    p.log.message(`${pc.gray('Test ID:')} ${pc.white(args.testId)}`);
+  if (args.testIds && args.testIds.length > 0) {
+    body.testIds = args.testIds;
+    if (args.testIds.length === 1) {
+      p.log.message(`${pc.gray('Test ID:')} ${pc.white(args.testIds[0])}`);
+    } else {
+      p.log.message(`${pc.gray('Test IDs:')} ${pc.white(args.testIds.length + ' tests')}`);
+      for (const id of args.testIds) {
+        p.log.message(`  ${pc.gray('•')} ${pc.white(id)}`);
+      }
+    }
   }
   if (args.groupId) {
     body.testGroupId = args.groupId;

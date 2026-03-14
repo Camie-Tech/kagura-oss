@@ -21,11 +21,13 @@ Usage:
   kagura run --url <targetUrl> --desc "<description>" [--prompt "<instructions>"]
 
   ${pc.bold('CI/CD (Cloud Mode - Published Tests):')}
-  kagura trigger --test-id <uuid>               Trigger a published test
-  kagura trigger --group-id <uuid>              Trigger a test group
-  kagura trigger --test-id <uuid> --no-wait     Trigger without waiting for completion
-  kagura status --run-id <uuid>                 Check status of a run
-  kagura results --run-id <uuid>                Get detailed results of a run
+  kagura trigger --test-id <uuid>                     Trigger a single published test
+  kagura trigger --test-id <id1>,<id2>,<id3>          Trigger multiple tests (comma-separated)
+  kagura trigger --test-id <id1> --test-id <id2>      Trigger multiple tests (multiple flags)
+  kagura trigger --group-id <uuid>                    Trigger a test group
+  kagura trigger --test-id <uuid> --no-wait           Trigger without waiting for completion
+  kagura status --run-id <uuid>                       Check status of a run
+  kagura results --run-id <uuid>                      Get detailed results of a run
 
 Options:
   --url        Target URL to test (for run command)
@@ -40,18 +42,31 @@ Options:
 }
 
 function parseArgs(argv: string[]) {
-  const args: Record<string, string | boolean> = {};
+  const args: Record<string, string | boolean | string[]> = {};
+  const testIds: string[] = [];
+  
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--url') args.url = argv[++i];
     else if (a === '--desc') args.desc = argv[++i];
     else if (a === '--prompt') args.prompt = argv[++i];
-    else if (a === '--test-id') args.testId = argv[++i];
+    else if (a === '--test-id' || a === '--test-ids') {
+      // Support multiple --test-id flags or comma-separated values
+      const val = argv[++i];
+      if (val) {
+        testIds.push(...val.split(',').map(id => id.trim()).filter(Boolean));
+      }
+    }
     else if (a === '--group-id') args.groupId = argv[++i];
     else if (a === '--run-id') args.runId = argv[++i];
     else if (a === '--no-wait') args.noWait = true;
     else if (a === '--help' || a === '-h') args.help = true;
   }
+  
+  if (testIds.length > 0) {
+    args.testIds = testIds;
+  }
+  
   return args;
 }
 
@@ -82,13 +97,15 @@ async function main() {
   }
 
   if (cmd === 'trigger') {
-    if (!parsed.testId && !parsed.groupId) {
+    if (!parsed.testIds && !parsed.groupId) {
       console.error(pc.red('Error: --test-id or --group-id is required'));
       console.log('Usage: kagura trigger --test-id <uuid>');
+      console.log('       kagura trigger --test-id <uuid1>,<uuid2>,<uuid3>');
+      console.log('       kagura trigger --test-id <uuid1> --test-id <uuid2>');
       process.exit(1);
     }
     const code = await triggerCommand({
-      testId: parsed.testId as string | undefined,
+      testIds: parsed.testIds as string[] | undefined,
       groupId: parsed.groupId as string | undefined,
       wait: !parsed.noWait,
     });
