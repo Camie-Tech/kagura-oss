@@ -20,36 +20,14 @@ import { createFileCredentialProvider } from '../adapters/file-credentials.js';
 import { createAnthropicAiProvider } from '../adapters/anthropic-ai.js';
 
 interface CloudRunResponse {
-  runId: string;
+  testId: string;
+  resultId: string;
   status: string;
-  testCount: number;
+  passed: boolean;
+  summary?: string;
   error?: string;
-}
-
-interface CloudStatusResponse {
-  runId: string;
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-  progress: number;
-  total: number;
-  passed: number;
-  failed: number;
-}
-
-interface CloudResultsResponse {
-  runId: string;
-  status: string;
-  results: Array<{
-    testId: string;
-    testName: string;
-    status: string;
-    durationMs: number;
-    error?: string;
-  }>;
-  summary: {
-    total: number;
-    passed: number;
-    failed: number;
-  };
+  steps?: any[];
+  pollUrl?: string;
 }
 
 async function makeApiRequest<T>(
@@ -112,183 +90,71 @@ async function runCloudMode(args: { url: string; desc: string; prompt?: string }
   const s = p.spinner();
   s.start('Connecting to Kagura Cloud...');
 
-  // For cloud mode with ad-hoc tests, we need to create a test first
-  // Currently the API expects existing test IDs, so we'll create one on-the-fly
-  const createTestRes = await makeApiRequest<{ id: string; error?: string }>(
+  // Use the ad-hoc test run endpoint
+  const response = await makeApiRequest<CloudRunResponse>(
     'POST',
-    '/api/tests',
+    '/api/v1/tests/run',
     apiKey,
     apiUrl,
     {
-      name: args.desc.slice(0, 100),
-      description: args.prompt || args.desc,
-      targetUrl: args.url,
-      testType: 'one-time',
+      url: args.url,
+      desc: args.desc,
+      prompt: args.prompt,
+      wait: true, // Wait for result
     }
   );
 
-  if (!createTestRes.ok) {
-    s.stop('Failed to create test');
+  if (!response.ok) {
+    s.stop('Request failed');
     
-    // If the error is about authentication, show helpful message
-    if (createTestRes.status === 401) {
+    if (response.status === 401) {
       p.log.error(pc.red('Authentication failed. Your API key may be invalid or expired.'));
       p.log.message(pc.gray('Run `kagura setup` to reconfigure your API key.'));
+    } else if (response.status === 402) {
+      p.log.error(pc.red('Insufficient credits. Please add credits to your account.'));
     } else {
-      p.log.error(pc.red(`Failed to create test: ${createTestRes.data.error || 'Unknown error'}`));
+      p.log.error(pc.red(`Failed: ${response.data.error || 'Unknown error'}`));
     }
     return 1;
   }
 
-  const testId = createTestRes.data.id;
-  s.message('Test created, triggering execution...');
+  s.stop('Test completed');
 
-  // Trigger the test run
-  const triggerRes = await makeApiRequest<CloudRunResponse>(
-    'POST',
-    '/api/v1/tests/trigger',
-    apiKey,
-    apiUrl,
-    {
-      testIds: [testId],
-      targetUrl: args.url,
-    }
-  );
-
-  if (!triggerRes.ok) {
-    s.stop('Failed to trigger test');
-    
-    if (triggerRes.data.error?.includes('published')) {
-      // Test needs to be published first - for CLI, we auto-publish one-time tests
-      p.log.warn(pc.yellow('Test needs to be published. Attempting to publish...'));
-      
-      const publishRes = await makeApiRequest<{ success: boolean; error?: string }>(
-        'POST',
-        `/api/tests/${testId}/publish`,
-        apiKey,
-        apiUrl,
-        { action: 'publish' }
-      );
-
-      if (!publishRes.ok) {
-        p.log.error(pc.red(`Cannot publish test: ${publishRes.data.error}`));
-        p.log.message(pc.gray('The test may require human input or need to pass first.'));
-        return 1;
-      }
-
-      // Retry trigger
-      const retryRes = await makeApiRequest<CloudRunResponse>(
-        'POST',
-        '/api/v1/tests/trigger',
-        apiKey,
-        apiUrl,
-        { testIds: [testId], targetUrl: args.url }
-      );
-
-      if (!retryRes.ok) {
-        p.log.error(pc.red(`Failed to trigger: ${retryRes.data.error}`));
-        return 1;
-      }
-
-      s.message(`Run started: ${retryRes.data.runId}`);
-    } else {
-      p.log.error(pc.red(`Failed to trigger: ${triggerRes.data.error}`));
-      return 1;
-    }
-  }
-
-  const runId = triggerRes.data?.runId;
-  if (!runId) {
-    s.stop('No run ID returned');
-    p.log.error(pc.red('Server did not return a run ID'));
-    return 1;
-  }
-
-  s.message(`Run ${runId.slice(0, 8)}... in progress`);
-
-  // Poll for status
-  let attempts = 0;
-  const maxAttempts = 120; // 10 minutes max
-  let finalStatus: CloudStatusResponse | null = null;
-
-  while (attempts < maxAttempts) {
-    await new Promise(r => setTimeout(r, 5000)); // Poll every 5 seconds
-    
-    const statusRes = await makeApiRequest<CloudStatusResponse>(
-      'GET',
-      `/api/v1/runs/${runId}/status`,
-      apiKey,
-      apiUrl
-    );
-
-    if (!statusRes.ok) {
-      attempts++;
-      continue;
-    }
-
-    finalStatus = statusRes.data;
-    
-    // Update spinner with progress
-    if (finalStatus.total > 0) {
-      const pct = Math.round((finalStatus.progress / finalStatus.total) * 100);
-      s.message(`Progress: ${finalStatus.progress}/${finalStatus.total} (${pct}%) - ${finalStatus.passed} passed, ${finalStatus.failed} failed`);
-    }
-
-    // Check for terminal status
-    if (['completed', 'failed', 'cancelled'].includes(finalStatus.status)) {
-      break;
-    }
-
-    attempts++;
-  }
-
-  s.stop('Execution finished');
-
-  if (!finalStatus) {
-    p.log.error(pc.red('Failed to get run status'));
-    return 1;
-  }
-
-  // Get detailed results
-  const resultsRes = await makeApiRequest<CloudResultsResponse>(
-    'GET',
-    `/api/v1/runs/${runId}/results`,
-    apiKey,
-    apiUrl
-  );
+  const result = response.data;
 
   // Display results
-  if (finalStatus.status === 'completed' && finalStatus.failed === 0) {
-    p.log.success(pc.green(`✓ All tests passed! (${finalStatus.passed}/${finalStatus.total})`));
-  } else if (finalStatus.status === 'completed') {
-    p.log.warn(pc.yellow(`⚠ ${finalStatus.passed} passed, ${finalStatus.failed} failed`));
-  } else if (finalStatus.status === 'failed') {
-    p.log.error(pc.red(`✗ Run failed`));
+  if (result.passed) {
+    p.log.success(pc.green('✓ Test passed!'));
   } else {
-    p.log.warn(pc.yellow(`Run ended with status: ${finalStatus.status}`));
+    p.log.error(pc.red(`✗ Test failed: ${result.status}`));
   }
 
-  // Show individual test results if available
-  if (resultsRes.ok && resultsRes.data.results) {
+  // Show summary if available
+  if (result.summary) {
     console.log('');
-    for (const result of resultsRes.data.results) {
-      const icon = result.status === 'passed' ? pc.green('✓') : pc.red('✗');
-      const duration = result.durationMs ? pc.gray(`(${(result.durationMs / 1000).toFixed(1)}s)`) : '';
-      console.log(`  ${icon} ${result.testName} ${duration}`);
-      if (result.error) {
-        console.log(`    ${pc.red(result.error)}`);
-      }
-    }
+    p.note(result.summary, 'AI Summary');
+  }
+
+  // Show error if any
+  if (result.error) {
+    console.log('');
+    p.log.error(pc.red(result.error));
+  }
+
+  // Show steps count
+  if (result.steps && result.steps.length > 0) {
+    console.log('');
+    p.log.message(pc.gray(`Executed ${result.steps.length} steps`));
   }
 
   p.note(
-    `${pc.gray('Run ID:')} ${pc.white(runId)}\n${pc.gray('Dashboard:')} ${pc.cyan(apiUrl + '/dashboard')}`,
+    `${pc.gray('Test ID:')} ${pc.white(result.testId)}\n${pc.gray('Result ID:')} ${pc.white(result.resultId)}\n${pc.gray('Dashboard:')} ${pc.cyan(apiUrl + '/tests/' + result.testId)}`,
     'View Details'
   );
 
-  p.outro(finalStatus.failed > 0 ? pc.red('Some tests failed') : pc.green('Done!'));
+  p.outro(result.passed ? pc.green('Done!') : pc.red('Test failed'));
   
-  return finalStatus.failed > 0 ? 1 : 0;
+  return result.passed ? 0 : 1;
 }
 
 export async function runCommand(args: { url: string; desc: string; prompt?: string }): Promise<number> {
