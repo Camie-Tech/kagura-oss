@@ -5,53 +5,74 @@ import { setupCommand } from './commands/setup.js';
 import { uiCommand } from './commands/ui.js';
 import { modeCommand } from './commands/mode.js';
 import { triggerCommand, statusCommand, resultsCommand } from './commands/trigger.js';
+import { listTestsCommand, getTestCommand } from './commands/tests.js';
+import { listRunsCommand, cancelRunCommand } from './commands/runs.js';
+import { listGroupsCommand, triggerGroupCommand } from './commands/groups.js';
+import { usageCommand } from './commands/usage.js';
 import { loadCliConfig } from './config/config.js';
 import pc from 'picocolors';
 
 function usage() {
-  console.log(`kagura (OSS CLI)
+  console.log(`${pc.red(pc.bold('kagura'))} - Agentic Testing CLI
 
-Usage:
-  kagura setup                                  Initialize the CLI and authenticate
-  kagura mode                                   Show current mode (local/cloud)
-  kagura mode <local|cloud>                     Switch between local and cloud mode
-  kagura ui                                     Launch the local visualization dashboard
+${pc.bold('Usage:')}
+  kagura <command> [options]
 
-  ${pc.bold('Ad-hoc Testing:')}
-  kagura run --url <targetUrl> --desc "<description>" [--prompt "<instructions>"]
+${pc.bold('Setup & Config:')}
+  kagura setup                                    Initialize the CLI and authenticate
+  kagura mode                                     Show current mode (local/cloud)
+  kagura mode <local|cloud>                       Switch between local and cloud mode
+  kagura ui                                       Launch the local visualization dashboard
 
-  ${pc.bold('CI/CD (Cloud Mode - Published Tests):')}
-  kagura trigger --test-id <uuid>                     Trigger a single published test
-  kagura trigger --test-id <id1>,<id2>,<id3>          Trigger multiple tests (comma-separated)
-  kagura trigger --test-id <id1> --test-id <id2>      Trigger multiple tests (multiple flags)
-  kagura trigger --group-id <uuid>                    Trigger a test group
-  kagura trigger --test-id <uuid> --no-wait           Trigger without waiting for completion
-  kagura status --run-id <uuid>                       Check status of a run
-  kagura results --run-id <uuid>                      Get detailed results of a run
+${pc.bold('Ad-hoc Testing (Local & Cloud):')}
+  kagura run --url <url> --desc "<desc>"          Run ad-hoc test
+    --prompt "<instructions>"                     Optional detailed instructions
 
-Options:
-  --url        Target URL to test (for run command)
-  --desc       Short description of the test (for run command)
-  --prompt     Detailed step-by-step instructions (for run command)
-  --test-id    UUID of a published test (for trigger command)
-  --group-id   UUID of a test group (for trigger command)
-  --run-id     UUID of a run (for status/results commands)
-  --no-wait    Don't wait for completion (for trigger command)
-  --help, -h   Show this help
+${pc.bold('Tests (Cloud Mode):')}
+  kagura tests                                    List all tests
+    --published                                   Filter: only published tests
+    --passing                                     Filter: only passing tests
+    --search "<query>"                            Search by name/description
+    --limit <n>                                   Number of results (default 50)
+  kagura tests get --test-id <uuid>               Get test details
+
+${pc.bold('Test Groups (Cloud Mode):')}
+  kagura groups                                   List all test groups
+    --limit <n>                                   Number of results
+  kagura groups trigger --group-id <uuid>         Trigger all tests in a group
+
+${pc.bold('Trigger & Run (Cloud Mode):')}
+  kagura trigger --test-id <uuid>                 Trigger a published test
+  kagura trigger --test-id <id1>,<id2>            Trigger multiple tests
+  kagura trigger --group-id <uuid>                Trigger a test group
+    --no-wait                                     Don't wait for completion
+
+${pc.bold('Run Status (Cloud Mode):')}
+  kagura runs                                     List recent runs
+    --status <status>                             Filter by status
+    --limit <n>                                   Number of results
+  kagura status --run-id <uuid>                   Check run status
+  kagura results --run-id <uuid>                  Get detailed results
+  kagura cancel --run-id <uuid>                   Cancel a running test
+
+${pc.bold('Usage & Billing (Cloud Mode):')}
+  kagura usage                                    Show credit balance and stats
+
+${pc.bold('Options:')}
+  --help, -h                                      Show this help
 `);
 }
 
 function parseArgs(argv: string[]) {
   const args: Record<string, string | boolean | string[]> = {};
   const testIds: string[] = [];
-  
+
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--url') args.url = argv[++i];
     else if (a === '--desc') args.desc = argv[++i];
     else if (a === '--prompt') args.prompt = argv[++i];
     else if (a === '--test-id' || a === '--test-ids') {
-      // Support multiple --test-id flags or comma-separated values
       const val = argv[++i];
       if (val) {
         testIds.push(...val.split(',').map(id => id.trim()).filter(Boolean));
@@ -60,19 +81,25 @@ function parseArgs(argv: string[]) {
     else if (a === '--group-id') args.groupId = argv[++i];
     else if (a === '--run-id') args.runId = argv[++i];
     else if (a === '--no-wait') args.noWait = true;
+    else if (a === '--published') args.published = true;
+    else if (a === '--passing') args.passing = true;
+    else if (a === '--search') args.search = argv[++i];
+    else if (a === '--status') args.status = argv[++i];
+    else if (a === '--limit') args.limit = argv[++i];
     else if (a === '--help' || a === '-h') args.help = true;
   }
-  
+
   if (testIds.length > 0) {
     args.testIds = testIds;
   }
-  
+
   return args;
 }
 
 async function main() {
   const argv = process.argv.slice(2);
   const cmd = argv[0];
+  const subCmd = argv[1];
   const parsed = parseArgs(argv.slice(1));
 
   if (!cmd || parsed.help) {
@@ -80,6 +107,7 @@ async function main() {
     process.exit(0);
   }
 
+  // Setup & Config commands
   if (cmd === 'setup') {
     await setupCommand();
     return;
@@ -96,12 +124,67 @@ async function main() {
     process.exit(0);
   }
 
+  // Tests commands
+  if (cmd === 'tests') {
+    if (subCmd === 'get') {
+      if (!parsed.testId && !parsed.testIds) {
+        console.error(pc.red('Error: --test-id is required'));
+        console.log('Usage: kagura tests get --test-id <uuid>');
+        process.exit(1);
+      }
+      const testId = parsed.testId as string || (parsed.testIds as string[])?.[0];
+      const code = await getTestCommand({ testId });
+      process.exit(code);
+    }
+    
+    // List tests
+    const code = await listTestsCommand({
+      published: parsed.published as boolean | undefined,
+      passing: parsed.passing as boolean | undefined,
+      limit: parsed.limit ? parseInt(parsed.limit as string) : undefined,
+      search: parsed.search as string | undefined,
+    });
+    process.exit(code);
+  }
+
+  // Test Groups commands
+  if (cmd === 'groups') {
+    if (subCmd === 'trigger') {
+      if (!parsed.groupId) {
+        console.error(pc.red('Error: --group-id is required'));
+        console.log('Usage: kagura groups trigger --group-id <uuid>');
+        process.exit(1);
+      }
+      const code = await triggerGroupCommand({
+        groupId: parsed.groupId as string,
+        wait: !parsed.noWait,
+      });
+      process.exit(code);
+    }
+
+    // List groups
+    const code = await listGroupsCommand({
+      limit: parsed.limit ? parseInt(parsed.limit as string) : undefined,
+    });
+    process.exit(code);
+  }
+
+  // Runs commands
+  if (cmd === 'runs') {
+    const code = await listRunsCommand({
+      status: parsed.status as string | undefined,
+      limit: parsed.limit ? parseInt(parsed.limit as string) : undefined,
+    });
+    process.exit(code);
+  }
+
+  // Trigger command
   if (cmd === 'trigger') {
     if (!parsed.testIds && !parsed.groupId) {
       console.error(pc.red('Error: --test-id or --group-id is required'));
       console.log('Usage: kagura trigger --test-id <uuid>');
       console.log('       kagura trigger --test-id <uuid1>,<uuid2>,<uuid3>');
-      console.log('       kagura trigger --test-id <uuid1> --test-id <uuid2>');
+      console.log('       kagura trigger --group-id <uuid>');
       process.exit(1);
     }
     const code = await triggerCommand({
@@ -112,6 +195,7 @@ async function main() {
     process.exit(code);
   }
 
+  // Status command
   if (cmd === 'status') {
     if (!parsed.runId) {
       console.error(pc.red('Error: --run-id is required'));
@@ -122,6 +206,7 @@ async function main() {
     process.exit(code);
   }
 
+  // Results command
   if (cmd === 'results') {
     if (!parsed.runId) {
       console.error(pc.red('Error: --run-id is required'));
@@ -132,6 +217,24 @@ async function main() {
     process.exit(code);
   }
 
+  // Cancel command
+  if (cmd === 'cancel') {
+    if (!parsed.runId) {
+      console.error(pc.red('Error: --run-id is required'));
+      console.log('Usage: kagura cancel --run-id <uuid>');
+      process.exit(1);
+    }
+    const code = await cancelRunCommand({ runId: parsed.runId as string });
+    process.exit(code);
+  }
+
+  // Usage command
+  if (cmd === 'usage') {
+    const code = await usageCommand();
+    process.exit(code);
+  }
+
+  // Run command (ad-hoc testing)
   if (cmd === 'run') {
     if (!parsed.url || !parsed.desc) {
       console.error(pc.red('Error: --url and --desc are required'));
