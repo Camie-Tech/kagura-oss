@@ -92,8 +92,8 @@ async function main() {
 
   if (cmd === 'mode') {
     const newMode = argv[1];
-    const code = await modeCommand(newMode as 'local' | 'cloud' | undefined);
-    process.exit(code);
+    await modeCommand({ mode: newMode as 'local' | 'cloud' | undefined });
+    process.exit(0);
   }
 
   if (cmd === 'trigger') {

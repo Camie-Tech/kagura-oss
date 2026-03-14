@@ -21,6 +21,7 @@ interface StatusResponse {
   passed: number;
   failed: number;
   startedAt?: string;
+  error?: string;
 }
 
 interface ResultsResponse {
@@ -38,6 +39,7 @@ interface ResultsResponse {
     passed: number;
     failed: number;
   };
+  error?: string;
 }
 
 async function makeApiRequest<T>(
