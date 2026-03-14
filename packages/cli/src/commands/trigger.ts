@@ -15,13 +15,19 @@ interface TriggerResponse {
 
 interface StatusResponse {
   runId: string;
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled' | 'paused';
   progress: number;
   total: number;
   passed: number;
   failed: number;
   startedAt?: string;
   error?: string;
+  pausedTests?: Array<{
+    testId: string;
+    testName: string;
+    question: string;
+    resultId: string;
+  }>;
 }
 
 interface ResultsResponse {
@@ -211,6 +217,53 @@ async function pollForCompletion(runId: string, apiKey: string, apiUrl: string):
     if (status.total > 0) {
       const pct = Math.round((status.progress / status.total) * 100);
       s.message(`Progress: ${status.progress}/${status.total} (${pct}%) - ${status.passed} passed, ${status.failed} failed`);
+    }
+
+    // Check if any tests are paused waiting for user input
+    if (status.status === 'paused' || (status.pausedTests && status.pausedTests.length > 0)) {
+      s.stop('Test paused - requires input');
+      
+      for (const paused of status.pausedTests || []) {
+        console.log('');
+        p.log.warn(pc.yellow(`Test "${paused.testName}" needs your input:`));
+        console.log('');
+        console.log(`  ${pc.cyan(paused.question)}`);
+        console.log('');
+        
+        const response = await p.text({
+          message: 'Your response:',
+          placeholder: 'Type your answer...',
+        });
+        
+        if (p.isCancel(response)) {
+          p.log.warn(pc.yellow('Cancelled. Test will remain paused.'));
+          return 2;
+        }
+        
+        // Submit the response
+        s.start('Submitting response...');
+        const submitRes = await makeApiRequest<{ success: boolean; error?: string }>(
+          'POST',
+          `/api/v1/tests/${paused.testId}/respond`,
+          apiKey,
+          apiUrl,
+          {
+            resultId: paused.resultId,
+            response: response as string,
+          }
+        );
+        
+        if (!submitRes.ok) {
+          s.stop('Failed to submit');
+          p.log.error(pc.red(`Failed to submit response: ${submitRes.data.error || 'Unknown error'}`));
+          return 1;
+        }
+        
+        s.message('Response submitted, continuing...');
+      }
+      
+      // Continue polling after responding
+      continue;
     }
 
     if (['completed', 'failed', 'cancelled'].includes(status.status)) {
