@@ -1,4 +1,4 @@
-# @kagura/mcp
+# @kagura-run/mcp
 
 MCP (Model Context Protocol) server for [Kagura AI Cloud](https://kagura.run) — Agentic Testing.
 
@@ -15,7 +15,7 @@ Add to your `~/.cursor/mcp.json`:
   "mcpServers": {
     "kagura": {
       "command": "npx",
-      "args": ["@kagura/mcp"],
+      "args": ["@kagura-run/mcp"],
       "env": {
         "KAGURA_API_KEY": "kag_live_your_api_key_here"
       }
@@ -33,7 +33,7 @@ Add to your VS Code MCP settings:
   "mcp.servers": {
     "kagura": {
       "command": "npx",
-      "args": ["@kagura/mcp"],
+      "args": ["@kagura-run/mcp"],
       "env": {
         "KAGURA_API_KEY": "kag_live_your_api_key_here"
       }
@@ -51,7 +51,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "kagura": {
       "command": "npx",
-      "args": ["@kagura/mcp"],
+      "args": ["@kagura-run/mcp"],
       "env": {
         "KAGURA_API_KEY": "kag_live_your_api_key_here"
       }

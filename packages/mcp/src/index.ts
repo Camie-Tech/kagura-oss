@@ -33,7 +33,7 @@ if (!apiKey) {
   console.error('    "mcpServers": {');
   console.error('      "kagura": {');
   console.error('        "command": "npx",');
-  console.error('        "args": ["@kagura/mcp"],');
+  console.error('        "args": ["@kagura-run/mcp"],');
   console.error('        "env": {');
   console.error('          "KAGURA_API_KEY": "kag_live_your_api_key_here"');
   console.error('        }');

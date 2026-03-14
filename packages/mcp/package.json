@@ -1,5 +1,5 @@
 {
-  "name": "@kagura/mcp",
+  "name": "@kagura-run/mcp",
   "version": "0.1.0",
   "description": "MCP (Model Context Protocol) server for Kagura AI Cloud - Agentic Testing",
   "type": "module",
