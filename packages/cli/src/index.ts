@@ -27,6 +27,7 @@ ${pc.bold('Setup & Config:')}
 ${pc.bold('Ad-hoc Testing (Local & Cloud):')}
   kagura run --url <url> --desc "<desc>"          Run ad-hoc test
     --prompt "<instructions>"                     Optional detailed instructions
+    --no-wait                                     Return immediately (cloud mode)
 
 ${pc.bold('Tests (Cloud Mode):')}
   kagura tests                                    List all tests
@@ -255,6 +256,7 @@ async function main() {
       url: parsed.url as string,
       desc: parsed.desc as string,
       prompt: parsed.prompt as string | undefined,
+      noWait: parsed.noWait as boolean | undefined,
     });
     process.exit(code);
   }

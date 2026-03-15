@@ -23,11 +23,24 @@ interface CloudRunResponse {
   testId: string;
   resultId: string;
   status: string;
-  passed: boolean;
+  passed?: boolean;
   summary?: string;
   error?: string;
   steps?: any[];
   pollUrl?: string;
+  message?: string;
+}
+
+interface TestResultStatus {
+  status: 'pending' | 'running' | 'passed' | 'failed' | 'timed_out' | 'aborted' | 'paused';
+  steps?: any[];
+  ai_summary?: string;
+  error_message?: string;
+  completion_status?: string;
+  runner_state?: {
+    turnCount?: number;
+    pauseReason?: string;
+  };
 }
 
 async function makeApiRequest<T>(
@@ -77,7 +90,7 @@ async function makeApiRequest<T>(
   });
 }
 
-async function runCloudMode(args: { url: string; desc: string; prompt?: string }): Promise<number> {
+async function runCloudMode(args: { url: string; desc: string; prompt?: string; noWait?: boolean }): Promise<number> {
   const config = await loadCliConfig();
   const apiUrl = resolveApiUrl(config);
   const appUrl = resolveAppUrl(config);
@@ -89,9 +102,9 @@ async function runCloudMode(args: { url: string; desc: string; prompt?: string }
   }
 
   const s = p.spinner();
-  s.start('Connecting to Kagura Cloud...');
+  s.start('Starting test...');
 
-  // Use the ad-hoc test run endpoint
+  // Always start with wait: false to avoid nginx timeout
   const response = await makeApiRequest<CloudRunResponse>(
     'POST',
     '/api/v1/tests/run',
@@ -101,7 +114,7 @@ async function runCloudMode(args: { url: string; desc: string; prompt?: string }
       url: args.url,
       desc: args.desc,
       prompt: args.prompt,
-      wait: true, // Wait for result
+      wait: false, // Always async, we'll poll for status
     }
   );
 
@@ -119,46 +132,107 @@ async function runCloudMode(args: { url: string; desc: string; prompt?: string }
     return 1;
   }
 
-  s.stop('Test completed');
+  const { testId, resultId } = response.data;
+  s.message(`Test started (${resultId.slice(0, 8)}...)`);
 
-  const result = response.data;
-
-  // Display results
-  if (result.passed) {
-    p.log.success(pc.green('✓ Test passed!'));
-  } else {
-    p.log.error(pc.red(`✗ Test failed: ${result.status}`));
-  }
-
-  // Show summary if available
-  if (result.summary) {
+  // If --no-wait, return immediately
+  if (args.noWait) {
+    s.stop('Test started');
+    p.log.success(pc.green('✓ Test is running in background'));
+    p.log.message(pc.gray(`Test ID: ${testId}`));
+    p.log.message(pc.gray(`Result ID: ${resultId}`));
     console.log('');
-    p.note(result.summary, 'AI Summary');
+    p.log.message(`View results: ${appUrl}/tests/${testId}/results/${resultId}`);
+    return 0;
   }
 
-  // Show error if any
-  if (result.error) {
-    console.log('');
-    p.log.error(pc.red(result.error));
+  // Poll for completion
+  const maxWaitMs = 5 * 60 * 1000; // 5 minutes
+  const pollIntervalMs = 3000;
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWaitMs) {
+    await new Promise(r => setTimeout(r, pollIntervalMs));
+
+    const statusRes = await makeApiRequest<TestResultStatus>(
+      'GET',
+      `/api/v1/tests/${testId}/results/${resultId}`,
+      apiKey,
+      apiUrl
+    );
+
+    if (!statusRes.ok) {
+      // If 404, test might still be initializing
+      if (statusRes.status === 404) continue;
+      s.message('Waiting for results...');
+      continue;
+    }
+
+    const status = statusRes.data;
+    const stepCount = status.steps?.length || 0;
+    const turnCount = status.runner_state?.turnCount || 0;
+
+    // Update spinner with progress
+    if (status.status === 'running') {
+      s.message(`Running... (${stepCount} steps, turn ${turnCount})`);
+    }
+
+    // Check for terminal states
+    if (['passed', 'failed', 'timed_out', 'aborted'].includes(status.status)) {
+      s.stop('Test completed');
+
+      const passed = status.status === 'passed';
+
+      if (passed) {
+        p.log.success(pc.green('✓ Test passed!'));
+      } else {
+        p.log.error(pc.red(`✗ Test ${status.status}`));
+      }
+
+      // Show summary if available
+      if (status.ai_summary) {
+        console.log('');
+        p.note(status.ai_summary, 'AI Summary');
+      }
+
+      // Show error if any
+      if (status.error_message) {
+        console.log('');
+        p.log.error(pc.red(status.error_message));
+      }
+
+      // Show steps count
+      if (stepCount > 0) {
+        console.log('');
+        p.log.message(pc.gray(`Executed ${stepCount} steps`));
+      }
+
+      p.note(
+        `${pc.gray('Test ID:')} ${pc.white(testId)}\n${pc.gray('Result ID:')} ${pc.white(resultId)}\n${pc.gray('Dashboard:')} ${pc.cyan(appUrl + '/tests/' + testId + '/results/' + resultId)}`,
+        'View Details'
+      );
+
+      p.outro(passed ? pc.green('Done!') : pc.red('Test failed'));
+      return passed ? 0 : 1;
+    }
+
+    // Handle paused state (waiting for user input)
+    if (status.status === 'paused') {
+      s.stop('Test paused');
+      p.log.warn(pc.yellow('Test requires user input'));
+      p.log.message(`View and respond at: ${appUrl}/tests/${testId}/results/${resultId}`);
+      return 2;
+    }
   }
 
-  // Show steps count
-  if (result.steps && result.steps.length > 0) {
-    console.log('');
-    p.log.message(pc.gray(`Executed ${result.steps.length} steps`));
-  }
-
-  p.note(
-    `${pc.gray('Test ID:')} ${pc.white(result.testId)}\n${pc.gray('Result ID:')} ${pc.white(result.resultId)}\n${pc.gray('Dashboard:')} ${pc.cyan(appUrl + '/tests/' + result.testId)}`,
-    'View Details'
-  );
-
-  p.outro(result.passed ? pc.green('Done!') : pc.red('Test failed'));
-  
-  return result.passed ? 0 : 1;
+  // Timeout
+  s.stop('Timed out');
+  p.log.warn(pc.yellow('Timed out waiting for test to complete'));
+  p.log.message(`Check status at: ${appUrl}/tests/${testId}/results/${resultId}`);
+  return 1;
 }
 
-export async function runCommand(args: { url: string; desc: string; prompt?: string }): Promise<number> {
+export async function runCommand(args: { url: string; desc: string; prompt?: string; noWait?: boolean }): Promise<number> {
   // Don't clear screen — keep command history visible like OpenClaw
   console.log('');
   
