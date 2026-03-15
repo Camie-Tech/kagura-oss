@@ -33,17 +33,24 @@ interface StatusResponse {
 interface ResultsResponse {
   runId: string;
   status: string;
-  results: Array<{
+  tests: Array<{
+    id: string;
     testId: string;
-    testName: string;
+    name: string;
     status: string;
-    durationMs: number;
-    error?: string;
+    durationMs: number | null;
+    error?: string | null;
   }>;
   summary: {
     total: number;
     passed: number;
     failed: number;
+    completed: number;
+  };
+  timing?: {
+    createdAt: string;
+    startedAt: string | null;
+    completedAt: string | null;
   };
   error?: string;
 }
@@ -277,14 +284,16 @@ async function pollForCompletion(runId: string, apiKey: string, apiUrl: string):
         apiUrl
       );
 
-      if (resultsRes.ok && resultsRes.data.results) {
+      if (resultsRes.ok && resultsRes.data.tests) {
         console.log('');
-        for (const result of resultsRes.data.results) {
-          const icon = result.status === 'passed' ? pc.green('✓') : pc.red('✗');
-          const duration = result.durationMs ? pc.gray(`(${(result.durationMs / 1000).toFixed(1)}s)`) : '';
-          console.log(`  ${icon} ${result.testName} ${duration}`);
-          if (result.error) {
-            console.log(`    ${pc.red(result.error)}`);
+        p.log.message(pc.bold('Test Results:'));
+        console.log('');
+        for (const test of resultsRes.data.tests) {
+          const icon = test.status === 'passed' ? pc.green('✓') : pc.red('✗');
+          const duration = test.durationMs ? pc.gray(`(${(test.durationMs / 1000).toFixed(1)}s)`) : '';
+          console.log(`  ${icon} ${test.name} ${duration}`);
+          if (test.error) {
+            console.log(`    ${pc.red(test.error)}`);
           }
         }
         console.log('');
@@ -407,15 +416,15 @@ export async function resultsCommand(args: { runId: string }): Promise<number> {
   console.log(`  ${pc.gray('Status:')} ${getStatusColor(data.status)}`);
   console.log('');
 
-  if (data.results && data.results.length > 0) {
+  if (data.tests && data.tests.length > 0) {
     console.log(pc.bold('  Test Results:'));
     console.log('');
-    for (const result of data.results) {
-      const icon = result.status === 'passed' ? pc.green('✓') : pc.red('✗');
-      const duration = result.durationMs ? pc.gray(`(${(result.durationMs / 1000).toFixed(1)}s)`) : '';
-      console.log(`    ${icon} ${result.testName} ${duration}`);
-      if (result.error) {
-        console.log(`      ${pc.red(result.error)}`);
+    for (const test of data.tests) {
+      const icon = test.status === 'passed' ? pc.green('✓') : pc.red('✗');
+      const duration = test.durationMs ? pc.gray(`(${(test.durationMs / 1000).toFixed(1)}s)`) : '';
+      console.log(`    ${icon} ${test.name} ${duration}`);
+      if (test.error) {
+        console.log(`      ${pc.red(test.error)}`);
       }
     }
     console.log('');
