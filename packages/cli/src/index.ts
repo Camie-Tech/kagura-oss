@@ -87,6 +87,7 @@ function parseArgs(argv: string[]) {
     else if (a === '--status') args.status = argv[++i];
     else if (a === '--limit') args.limit = argv[++i];
     else if (a === '--help' || a === '-h') args.help = true;
+    else if (a === '--version' || a === '-v' || a === '-V') args.version = true;
   }
 
   if (testIds.length > 0) {
@@ -96,13 +97,22 @@ function parseArgs(argv: string[]) {
   return args;
 }
 
+const VERSION = '0.3.2';
+
 async function main() {
   const argv = process.argv.slice(2);
   const cmd = argv[0];
   const subCmd = argv[1];
   const parsed = parseArgs(argv.slice(1));
 
-  if (!cmd || parsed.help) {
+  // Handle --version, -v, -V
+  if (cmd === '--version' || cmd === '-v' || cmd === '-V' || parsed.version) {
+    console.log(VERSION);
+    process.exit(0);
+  }
+
+  // Handle --help, -h, or no command
+  if (!cmd || cmd === '--help' || cmd === '-h' || parsed.help) {
     usage();
     process.exit(0);
   }
