@@ -70,7 +70,8 @@ export async function setupCommand() {
   console.log(`\n${pc.red('⛩')} ${pc.red('Kagura')} ${pc.gray(version)} - ${pc.red('Give me a URL and I\'ll give you peace of mind.')}\n`);
   
   const logoLines = logoText.split('\n');
-  const coloredLogo = logoLines.map(line => pc.bgWhite(pc.black(line))).join('\n');
+  // Kagura red/ember color on white background
+  const coloredLogo = logoLines.map(line => pc.bgWhite(pc.red(line))).join('\n');
   console.log(coloredLogo);
   console.log(`\n           ${pc.red('⛩')} ${pc.white('KAGURA AI')} ${pc.red('⛩')}\n`);
 
