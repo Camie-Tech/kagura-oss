@@ -19,6 +19,9 @@ export type EmailConfig = {
 
 export type CliConfig = {
   mode?: 'local' | 'cloud'
+  /** Web app URL (for setup links, dashboard) */
+  appUrl?: string
+  /** Public API URL (for CLI commands) */
   apiUrl?: string
   apiKey?: string
   anthropicApiKey?: string
@@ -44,8 +47,14 @@ export async function saveCliConfig(cfg: CliConfig): Promise<void> {
   await fs.rename(tmp, p)
 }
 
+/** Resolve the public API URL (api.kagura.run or api.kagura-app.camie.tech) */
 export function resolveApiUrl(cfg: CliConfig): string {
-  return cfg.apiUrl || process.env.KAGURA_API_URL || 'https://app.kagura.run'
+  return cfg.apiUrl || process.env.KAGURA_API_URL || 'https://api.kagura.run'
+}
+
+/** Resolve the web app URL (app.kagura.run or kagura-app.camie.tech) */
+export function resolveAppUrl(cfg: CliConfig): string {
+  return cfg.appUrl || process.env.KAGURA_APP_URL || 'https://app.kagura.run'
 }
 
 export function resolveApiKey(cfg: CliConfig): string | undefined {

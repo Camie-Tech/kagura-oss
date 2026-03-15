@@ -3,7 +3,7 @@ import https from 'node:https';
 import http from 'node:http';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { loadCliConfig, resolveApiUrl, resolveApiKey } from '../config/config.js';
+import { loadCliConfig, resolveApiUrl, resolveAppUrl, resolveApiKey } from '../config/config.js';
 
 // We import the engine for local mode execution
 import {
@@ -80,6 +80,7 @@ async function makeApiRequest<T>(
 async function runCloudMode(args: { url: string; desc: string; prompt?: string }): Promise<number> {
   const config = await loadCliConfig();
   const apiUrl = resolveApiUrl(config);
+  const appUrl = resolveAppUrl(config);
   const apiKey = resolveApiKey(config);
 
   if (!apiKey) {
@@ -148,7 +149,7 @@ async function runCloudMode(args: { url: string; desc: string; prompt?: string }
   }
 
   p.note(
-    `${pc.gray('Test ID:')} ${pc.white(result.testId)}\n${pc.gray('Result ID:')} ${pc.white(result.resultId)}\n${pc.gray('Dashboard:')} ${pc.cyan(apiUrl + '/tests/' + result.testId)}`,
+    `${pc.gray('Test ID:')} ${pc.white(result.testId)}\n${pc.gray('Result ID:')} ${pc.white(result.resultId)}\n${pc.gray('Dashboard:')} ${pc.cyan(appUrl + '/tests/' + result.testId)}`,
     'View Details'
   );
 

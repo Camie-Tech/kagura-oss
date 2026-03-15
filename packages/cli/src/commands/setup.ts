@@ -77,9 +77,13 @@ export async function setupCommand() {
   p.intro(pc.red(pc.bold(' Kagura onboarding ')));
 
   const currentConfig = await loadCliConfig();
-  const rawApiUrl = process.env.KAGURA_API_URL || currentConfig.apiUrl || 'https://kagura-app.camie.tech';
+  // App URL for web dashboard links
+  const rawAppUrl = process.env.KAGURA_APP_URL || currentConfig.appUrl || 'https://app.kagura.run';
+  const appUrl = rawAppUrl.replace(/\/$/, '');
+  // API URL for CLI commands  
+  const rawApiUrl = process.env.KAGURA_API_URL || currentConfig.apiUrl || 'https://api.kagura.run';
   const apiUrl = rawApiUrl.replace(/\/$/, '');
-  const settingsUrl = `${apiUrl}/settings#api-keys`;
+  const settingsUrl = `${appUrl}/settings#api-keys`;
 
   p.log.message('');
   p.log.step(pc.red(pc.bold('Environment Selection')));

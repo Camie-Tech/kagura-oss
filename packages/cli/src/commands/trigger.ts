@@ -2,7 +2,7 @@ import https from 'node:https';
 import http from 'node:http';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
-import { loadCliConfig, resolveApiUrl, resolveApiKey } from '../config/config.js';
+import { loadCliConfig, resolveApiUrl, resolveAppUrl, resolveApiKey } from '../config/config.js';
 
 interface TriggerResponse {
   runId?: string;
