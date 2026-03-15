@@ -40,6 +40,7 @@ interface ResultsResponse {
     status: string;
     durationMs: number | null;
     error?: string | null;
+    aiSummary?: string | null;
   }>;
   summary: {
     total: number;
@@ -295,6 +296,10 @@ async function pollForCompletion(runId: string, apiKey: string, apiUrl: string):
           if (test.error) {
             console.log(`    ${pc.red(test.error)}`);
           }
+          if (test.aiSummary) {
+            console.log('');
+            p.note(test.aiSummary, `AI Summary: ${test.name}`);
+          }
         }
         console.log('');
         
@@ -425,6 +430,10 @@ export async function resultsCommand(args: { runId: string }): Promise<number> {
       console.log(`    ${icon} ${test.name} ${duration}`);
       if (test.error) {
         console.log(`      ${pc.red(test.error)}`);
+      }
+      if (test.aiSummary) {
+        console.log('');
+        p.note(test.aiSummary, `AI Summary: ${test.name}`);
       }
     }
     console.log('');
