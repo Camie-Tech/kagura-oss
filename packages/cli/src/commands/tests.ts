@@ -54,7 +54,15 @@ async function makeApiRequest<T>(
 ): Promise<{ ok: boolean; data: T; status: number }> {
   return new Promise((resolve) => {
     try {
-      const urlObj = new URL(path, apiUrl);
+      // If apiUrl is an API subdomain (api.*), strip /api prefix from path to avoid double /api/api/
+    let normalizedPath = path;
+    try {
+      const baseHost = new URL(apiUrl).hostname;
+      if (baseHost.startsWith('api.') && path.startsWith('/api/')) {
+        normalizedPath = path.slice(4); // Remove /api prefix
+      }
+    } catch {}
+    const urlObj = new URL(normalizedPath, apiUrl);
       const requestModule = urlObj.protocol === 'https:' ? https : http;
 
       const options = {

@@ -37,9 +37,11 @@ interface TestResultStatus {
   ai_summary?: string;
   error_message?: string;
   completion_status?: string;
+  paused_question?: string;
   runner_state?: {
     turnCount?: number;
     pauseReason?: string;
+    pauseMessage?: string;
   };
 }
 
@@ -52,7 +54,15 @@ async function makeApiRequest<T>(
 ): Promise<{ ok: boolean; data: T; status: number }> {
   return new Promise((resolve) => {
     try {
-      const urlObj = new URL(path, apiUrl);
+      // If apiUrl is an API subdomain (api.*), strip /api prefix from path to avoid double /api/api/
+    let normalizedPath = path;
+    try {
+      const baseHost = new URL(apiUrl).hostname;
+      if (baseHost.startsWith('api.') && path.startsWith('/api/')) {
+        normalizedPath = path.slice(4); // Remove /api prefix
+      }
+    } catch {}
+    const urlObj = new URL(normalizedPath, apiUrl);
       const requestModule = urlObj.protocol === 'https:' ? https : http;
       
       const options = {
@@ -218,10 +228,48 @@ async function runCloudMode(args: { url: string; desc: string; prompt?: string; 
 
     // Handle paused state (waiting for user input)
     if (status.status === 'paused') {
-      s.stop('Test paused');
-      p.log.warn(pc.yellow('Test requires user input'));
-      p.log.message(`View and respond at: ${appUrl}/tests/${testId}/results/${resultId}`);
-      return 2;
+      const question = status.paused_question || status.runner_state?.pauseMessage || 'The test needs your input to continue.'
+      
+      s.stop('Test paused - requires input');
+      console.log('');
+      p.log.warn(pc.yellow('Test needs your input:'));
+      console.log('');
+      console.log(`  ${pc.cyan(question)}`);
+      console.log('');
+      
+      const response = await p.text({
+        message: 'Your response:',
+        placeholder: 'Type your answer...',
+      })
+      
+      if (p.isCancel(response)) {
+        p.log.warn(pc.yellow('Cancelled. Test will remain paused.'));
+        p.log.message(`Resume at: ${appUrl}/tests/${testId}/results/${resultId}`);
+        return 2;
+      }
+      
+      // Submit the response
+      s.start('Submitting response...');
+      const submitRes = await makeApiRequest<{ success: boolean; error?: string }>(
+        'POST',
+        `/api/v1/tests/${testId}/respond`,
+        apiKey,
+        apiUrl,
+        {
+          resultId,
+          response: response as string,
+        }
+      )
+      
+      if (!submitRes.ok) {
+        s.stop('Failed to submit');
+        p.log.error(pc.red(`Failed to submit response: ${submitRes.data.error || 'Unknown error'}`));
+        return 1;
+      }
+      
+      s.message('Response submitted, continuing...');
+      // Continue polling
+      continue;
     }
   }
 
