@@ -199,12 +199,41 @@ export async function setupCommand() {
       process.exit(1);
     }
     
+    // Ask about custom URLs (for self-hosted/dev environments)
+    const wantCustomUrls = await p.confirm({
+      message: 'Configure custom API/App URLs? (for self-hosted or dev)',
+      initialValue: currentConfig.apiUrl !== undefined || currentConfig.appUrl !== undefined,
+    });
+
+    let finalApiUrl = apiUrl;
+    let finalAppUrl = appUrl;
+
+    if (!p.isCancel(wantCustomUrls) && wantCustomUrls) {
+      const customApiUrl = await p.text({
+        message: 'API URL (for CLI requests):',
+        placeholder: 'https://api.kagura.run',
+        initialValue: currentConfig.apiUrl || apiUrl,
+      });
+      if (!p.isCancel(customApiUrl) && customApiUrl) {
+        finalApiUrl = String(customApiUrl).replace(/\/$/, '');
+      }
+
+      const customAppUrl = await p.text({
+        message: 'App URL (for browser/dashboard links):',
+        placeholder: 'https://app.kagura.run',
+        initialValue: currentConfig.appUrl || appUrl,
+      });
+      if (!p.isCancel(customAppUrl) && customAppUrl) {
+        finalAppUrl = String(customAppUrl).replace(/\/$/, '');
+      }
+    }
+
     s.message('Saving configuration locally...');
-    await saveCliConfig({ ...currentConfig, mode: 'cloud', apiKey: keyString, apiUrl });
+    await saveCliConfig({ ...currentConfig, mode: 'cloud', apiKey: keyString, apiUrl: finalApiUrl, appUrl: finalAppUrl });
     s.stop('API key verified and saved');
 
     p.note(
-      `${pc.gray('Mode:')} ${pc.cyan('Kagura Cloud')}\n${pc.gray('API Key:')} ${pc.green(maskApiKey(keyString))}\n${pc.gray('API URL:')} ${pc.blue(apiUrl)}\n${pc.gray('Configured:')} ${pc.white('~/.kagura/config.json')}`,
+      `${pc.gray('Mode:')} ${pc.cyan('Kagura Cloud')}\n${pc.gray('API Key:')} ${pc.green(maskApiKey(keyString))}\n${pc.gray('API URL:')} ${pc.blue(finalApiUrl)}\n${pc.gray('App URL:')} ${pc.blue(finalAppUrl)}\n${pc.gray('Configured:')} ${pc.white('~/.kagura/config.json')}`,
       'Setup Complete'
     );
   }
