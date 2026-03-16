@@ -1,6 +1,6 @@
 {
   "name": "@kagura-run/cli",
-  "version": "0.3.9",
+  "version": "0.3.10",
   "description": "Kagura AI - Open source CLI for running agentic tests",
   "bin": {
     "kagura": "dist/index.js"

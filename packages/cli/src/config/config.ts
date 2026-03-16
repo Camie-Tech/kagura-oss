@@ -47,14 +47,22 @@ export async function saveCliConfig(cfg: CliConfig): Promise<void> {
   await fs.rename(tmp, p)
 }
 
-/** Resolve the public API URL (api.kagura.run or api.kagura-app.camie.tech) */
+/** 
+ * Resolve the public API URL
+ * Priority: KAGURA_API_URL env > config.apiUrl > default
+ */
 export function resolveApiUrl(cfg: CliConfig): string {
-  return cfg.apiUrl || process.env.KAGURA_API_URL || 'https://api.kagura.run'
+  const url = process.env.KAGURA_API_URL || cfg.apiUrl || 'https://api.kagura.run'
+  return url.replace(/\/$/, '')
 }
 
-/** Resolve the web app URL (app.kagura.run or kagura-app.camie.tech) */
+/** 
+ * Resolve the web app URL (for browser links, dashboard)
+ * Priority: KAGURA_APP_URL env > config.appUrl > default
+ */
 export function resolveAppUrl(cfg: CliConfig): string {
-  return cfg.appUrl || process.env.KAGURA_APP_URL || 'https://app.kagura.run'
+  const url = process.env.KAGURA_APP_URL || cfg.appUrl || 'https://app.kagura.run'
+  return url.replace(/\/$/, '')
 }
 
 export function resolveApiKey(cfg: CliConfig): string | undefined {
