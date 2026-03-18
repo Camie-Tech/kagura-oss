@@ -97,8 +97,8 @@ export function formatCredentialsForAgent(values: Record<string, string>): strin
   return `Here are the credentials to use:\n${lines.join('\n')}`
 }
 
-function systemPrompt(): string {
-  return `You are a QA testing agent controlling a browser via Playwright. You see a screenshot and a DOM summary each turn.
+function systemPrompt(adapters: CoreAdapters): string {
+  let base = `You are a QA testing agent controlling a browser via Playwright. You see a screenshot and a DOM summary each turn.
 
 Return EXACTLY one JSON object per turn (no markdown).
 
@@ -115,11 +115,23 @@ Actions:
 - {"action":"done","summary":"..."}
 - {"action":"stuck","reason":"...","description":"..."}
 - {"action":"ask_user","message":"...","description":"..."}
+- {"action":"use_skill","skill":"<skill_name>","skillAction":"<action_name>","input":{...},"description":"..."}
 
 Rules:
 - If you need credentials or external input (OTP/magic link), use ask_user.
 - If an action fails, try a different selector/strategy.
-- Be concise but descriptive in description.`
+- Be concise but descriptive in description.
+- If a skill is available (e.g., email), use use_skill to invoke it instead of ask_user for things the skill can handle (e.g., reading verification emails, extracting OTPs).`
+
+  // Inject skill prompts so the agent knows what capabilities are available
+  if (adapters.skills) {
+    const skillPrompts = adapters.skills.getSkillPrompts()
+    if (skillPrompts) {
+      base += skillPrompts
+    }
+  }
+
+  return base
 }
 
 export async function runLiveAgenticTest(params: {
@@ -195,7 +207,7 @@ export async function runLiveAgenticTest(params: {
       })
     }
 
-    turns.push({ role: 'system', content: systemPrompt() })
+    turns.push({ role: 'system', content: systemPrompt(adapters) })
     turns.push({
       role: 'user',
       content: `You are at ${targetUrl}. Test goal: "${description}". Start with one action.`,
@@ -228,7 +240,7 @@ export async function runLiveAgenticTest(params: {
 
       const aiText = await adapters.ai.completeText(
         {
-          system: systemPrompt(),
+          system: systemPrompt(adapters),
           prompt,
           maxTokens: 1024,
           temperature: 0.2,
@@ -243,7 +255,7 @@ export async function runLiveAgenticTest(params: {
         // retry once
         const retry = await adapters.ai.completeText(
           {
-            system: systemPrompt(),
+            system: systemPrompt(adapters),
             prompt: `${prompt}\n\nYour response was not valid JSON. Respond with ONLY the JSON action object.` ,
             maxTokens: 512,
             temperature: 0,
@@ -274,6 +286,45 @@ export async function runLiveAgenticTest(params: {
       if (agentAction.action === 'stuck') {
         errorMessage = typeof agentAction.reason === 'string' ? agentAction.reason : 'Agent stuck'
         break
+      }
+
+      if (agentAction.action === 'use_skill') {
+        const skillName = String(agentAction.skill || '')
+        const skillActionName = String(agentAction.skillAction || '')
+        const skillInput = agentAction.input ?? {}
+
+        if (!adapters.skills) {
+          turns.push({ role: 'user', content: 'No skills are configured. Try a different approach.' })
+          continue
+        }
+
+        const skill = adapters.skills.get(skillName)
+        if (!skill || !skill.isConfigured()) {
+          turns.push({ role: 'user', content: `Skill "${skillName}" is not available. Try a different approach.` })
+          continue
+        }
+
+        const action = skill.actions().find(a => a.name === skillActionName)
+        if (!action) {
+          turns.push({ role: 'user', content: `Skill "${skillName}" has no action "${skillActionName}". Available actions: ${skill.actions().map(a => a.name).join(', ')}` })
+          continue
+        }
+
+        try {
+          const result = await action.execute(skillInput)
+          const resultStr = typeof result === 'string' ? result : JSON.stringify(result, null, 2)
+          turns.push({ role: 'user', content: `Skill action "${skillName}.${skillActionName}" returned:\n${resultStr}` })
+
+          adapters.events.emit({
+            type: 'log',
+            timestamp: Date.now(),
+            data: { runId, phase: 'skill_action', skill: skillName, action: skillActionName, turn },
+          })
+        } catch (err) {
+          const errMsg = err instanceof Error ? err.message : String(err)
+          turns.push({ role: 'user', content: `Skill action "${skillName}.${skillActionName}" failed: ${errMsg}` })
+        }
+        continue
       }
 
       if (agentAction.action === 'ask_user') {
