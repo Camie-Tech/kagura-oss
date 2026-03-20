@@ -210,6 +210,7 @@ export async function listTestsCommand(args: {
       );
     }
 
+    const isFiltered = !!(args.status || args.search);
     const total = runs.length;
 
     // Apply limit
@@ -223,7 +224,7 @@ export async function listTestsCommand(args: {
     }
 
     console.log('');
-    console.log(pc.bold(`  Local Runs (${total} total):`));
+    console.log(pc.bold(`  Local Runs (${total} total${isFiltered ? ', filtered' : ''}):`));
     console.log('');
 
     // Table header
@@ -251,7 +252,8 @@ export async function listTestsCommand(args: {
 
     console.log('');
     if (total > limit) {
-      p.log.message(pc.gray(`Showing ${runs.length} of ${total}. Use --limit to see more.`));
+      const suffix = isFiltered ? ' (filtered)' : '';
+      p.log.message(pc.gray(`Showing ${runs.length} of ${total} runs${suffix}. Use --limit to see more.`));
     }
 
     p.outro(pc.gray(`State dir: ${kaguraStateDir()}`));

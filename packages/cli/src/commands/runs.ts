@@ -130,6 +130,7 @@ export async function listRunsCommand(args: {
       });
     }
 
+    const isFiltered = !!args.status;
     const total = runs.length;
     const limit = args.limit || 20;
     runs = runs.slice(0, limit);
@@ -141,7 +142,7 @@ export async function listRunsCommand(args: {
     }
 
     console.log('');
-    console.log(pc.bold(`  Recent Runs (${total} total):`));
+    console.log(pc.bold(`  Recent Runs (${total} total${isFiltered ? ', filtered' : ''}):`));
     console.log('');
 
     for (const run of runs) {
@@ -164,7 +165,8 @@ export async function listRunsCommand(args: {
     }
 
     if (total > limit) {
-      p.log.message(pc.gray(`Showing ${runs.length} of ${total}. Use --limit to see more.`));
+      const suffix = isFiltered ? ' (filtered)' : '';
+      p.log.message(pc.gray(`Showing ${runs.length} of ${total} runs${suffix}. Use --limit to see more.`));
     }
 
     p.outro(pc.gray(`State dir: ${kaguraStateDir()}`));
