@@ -9,6 +9,7 @@ import { listTestsCommand, getTestCommand } from './commands/tests.js';
 import { listRunsCommand, cancelRunCommand } from './commands/runs.js';
 import { listGroupsCommand, triggerGroupCommand } from './commands/groups.js';
 import { usageCommand } from './commands/usage.js';
+import { statsCommand } from './commands/stats.js';
 import { loadCliConfig } from './config/config.js';
 import pc from 'picocolors';
 
@@ -29,13 +30,22 @@ ${pc.bold('Ad-hoc Testing (Local & Cloud):')}
     --prompt "<instructions>"                     Optional detailed instructions
     --no-wait                                     Return immediately (cloud mode)
 
-${pc.bold('Tests (Cloud Mode):')}
-  kagura tests                                    List all tests
-    --published                                   Filter: only published tests
-    --passing                                     Filter: only passing tests
-    --search "<query>"                            Search by name/description
-    --limit <n>                                   Number of results (default 50)
-  kagura tests get --test-id <uuid>               Get test details
+${pc.bold('Tests (Local & Cloud):')}
+  kagura tests                                    List all tests/runs
+    --status <passed|failed>                      Filter by status (local mode)
+    --search "<query>"                            Search by URL/description (local mode)
+    --published                                   Filter: only published tests (cloud)
+    --passing                                     Filter: only passing tests (cloud)
+    --limit <n>                                   Number of results (default 20)
+  kagura tests get --test-id <uuid>               Get test/run details
+
+${pc.bold('Runs (Local & Cloud):')}
+  kagura runs                                     List recent runs
+    --status <status>                             Filter by status
+    --limit <n>                                   Number of results
+
+${pc.bold('Statistics (Local Mode):')}
+  kagura stats                                    Show local testing statistics
 
 ${pc.bold('Test Groups (Cloud Mode):')}
   kagura groups                                   List all test groups
@@ -49,9 +59,6 @@ ${pc.bold('Trigger & Run (Cloud Mode):')}
     --no-wait                                     Don't wait for completion
 
 ${pc.bold('Run Status (Cloud Mode):')}
-  kagura runs                                     List recent runs
-    --status <status>                             Filter by status
-    --limit <n>                                   Number of results
   kagura status --run-id <uuid>                   Check run status
   kagura results --run-id <uuid>                  Get detailed results
   kagura cancel --run-id <uuid>                   Cancel a running test
@@ -135,6 +142,12 @@ async function main() {
     process.exit(0);
   }
 
+  // Stats command
+  if (cmd === 'stats') {
+    const code = await statsCommand();
+    process.exit(code);
+  }
+
   // Tests commands
   if (cmd === 'tests') {
     if (subCmd === 'get') {
@@ -147,13 +160,14 @@ async function main() {
       const code = await getTestCommand({ testId });
       process.exit(code);
     }
-    
+
     // List tests
     const code = await listTestsCommand({
       published: parsed.published as boolean | undefined,
       passing: parsed.passing as boolean | undefined,
       limit: parsed.limit ? parseInt(parsed.limit as string) : undefined,
       search: parsed.search as string | undefined,
+      status: parsed.status as string | undefined,
     });
     process.exit(code);
   }

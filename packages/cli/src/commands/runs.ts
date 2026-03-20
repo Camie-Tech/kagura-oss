@@ -3,6 +3,8 @@ import http from 'node:http';
 import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import { loadCliConfig, resolveApiUrl, resolveApiKey } from '../config/config.js';
+import { loadLocalRuns, getRunStatus, getRunDurationMs, formatDuration } from './tests.js';
+import { kaguraStateDir } from '../config/paths.js';
 
 interface Run {
   id: string;
@@ -98,7 +100,7 @@ function getStatusColor(status: string): string {
 }
 
 /**
- * List recent runs (cloud mode only)
+ * List recent runs (local + cloud mode)
  */
 export async function listRunsCommand(args: {
   status?: string;
@@ -108,11 +110,68 @@ export async function listRunsCommand(args: {
 
   const config = await loadCliConfig();
 
+  // ── Local mode ──────────────────────────────────────────────────────
   if (config.mode !== 'cloud') {
-    p.log.error(pc.red('This command requires cloud mode. Run `kagura mode cloud` first.'));
-    return 1;
+    p.intro(pc.red(pc.bold(' Kagura Runs (Local) ')));
+
+    const s = p.spinner();
+    s.start('Reading local state...');
+
+    let runs = await loadLocalRuns();
+
+    s.stop('Done');
+
+    // Apply status filter
+    if (args.status) {
+      const filter = args.status.toLowerCase();
+      runs = runs.filter(r => {
+        const st = getRunStatus(r);
+        return st === filter;
+      });
+    }
+
+    const total = runs.length;
+    const limit = args.limit || 20;
+    runs = runs.slice(0, limit);
+
+    if (runs.length === 0) {
+      p.log.warn(pc.yellow('No local runs found.'));
+      p.outro(pc.gray(`State dir: ${kaguraStateDir()}`));
+      return 0;
+    }
+
+    console.log('');
+    console.log(pc.bold(`  Recent Runs (${total} total):`));
+    console.log('');
+
+    for (const run of runs) {
+      const status = getRunStatus(run);
+      const statusLabel = status === 'passed'
+        ? pc.green('passed')
+        : status === 'failed'
+          ? pc.red('failed')
+          : pc.gray('no-steps');
+
+      const date = new Date(run.startedAt).toLocaleString();
+      const duration = formatDuration(getRunDurationMs(run));
+      const passed = run.steps.filter(s => s.status === 'success').length;
+      const failed = run.steps.filter(s => s.status === 'failed').length;
+
+      console.log(`  ${pc.cyan(run.runId.slice(0, 8))}  ${statusLabel}  ${pc.gray(duration)}`);
+      console.log(`    ${pc.green(String(passed))} passed, ${failed > 0 ? pc.red(String(failed)) : '0'} failed  ${pc.gray('·')}  ${pc.gray(run.currentUrl)}`);
+      console.log(`    ${pc.gray(date)}`);
+      console.log('');
+    }
+
+    if (total > limit) {
+      p.log.message(pc.gray(`Showing ${runs.length} of ${total}. Use --limit to see more.`));
+    }
+
+    p.outro(pc.gray(`State dir: ${kaguraStateDir()}`));
+    return 0;
   }
 
+  // ── Cloud mode ──────────────────────────────────────────────────────
   const apiUrl = resolveApiUrl(config);
   const apiKey = resolveApiKey(config);
 
@@ -132,9 +191,9 @@ export async function listRunsCommand(args: {
   if (args.limit) params.set('limit', String(args.limit));
 
   const queryString = params.toString();
-  const path = `/api/v1/runs${queryString ? `?${queryString}` : ''}`;
+  const apiPath = `/api/v1/runs${queryString ? `?${queryString}` : ''}`;
 
-  const response = await makeApiRequest<ListRunsResponse>('GET', path, apiKey, apiUrl);
+  const response = await makeApiRequest<ListRunsResponse>('GET', apiPath, apiKey, apiUrl);
 
   s.stop('Done');
 
@@ -157,11 +216,11 @@ export async function listRunsCommand(args: {
 
   for (const run of runs) {
     const date = new Date(run.createdAt).toLocaleString();
-    const progress = run.testsTotal > 0 
-      ? `${run.testsCompleted}/${run.testsTotal}` 
+    const progress = run.testsTotal > 0
+      ? `${run.testsCompleted}/${run.testsTotal}`
       : '0/0';
-    const passRate = run.testsCompleted > 0 
-      ? `${run.testsPassed} passed, ${run.testsFailed} failed` 
+    const passRate = run.testsCompleted > 0
+      ? `${run.testsPassed} passed, ${run.testsFailed} failed`
       : '';
 
     console.log(`  ${pc.gray(run.id.slice(0, 8))}  ${getStatusColor(run.status)}  ${pc.gray(progress)}`);
