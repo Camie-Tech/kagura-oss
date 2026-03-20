@@ -4,484 +4,1148 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Kagura Local Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    /* === CSS Variables (Dark mode — matches cloud app .dark theme) === */
     :root {
-      --bg: #09090b;
-      --card: #18181b;
-      --border: #27272a;
-      --text: #fafafa;
-      --text-muted: #a1a1aa;
-      --text-secondary: #71717a;
-      --primary: #ef4444;
-      --success: #22c55e;
-      --error: #ef4444;
-      --warning: #f59e0b;
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #111111;
+      --bg-card: #1a1a1a;
+      --bg-elevated: #222222;
+      --bg-input: #141414;
+      --border-color: #2a2a2a;
+      --border-subtle: #1f1f1f;
+      --text-primary: #f5f5f5;
+      --text-secondary: #a1a1a1;
+      --text-muted: #666666;
+
+      --shadow-fire: 0 0 15px rgba(220, 38, 38, 0.15);
+      --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.3);
+
+      --badge-success-bg: rgba(22, 101, 52, 0.4);
+      --badge-success-text: #4ade80;
+      --badge-error-bg: rgba(127, 29, 29, 0.4);
+      --badge-error-text: #f87171;
+      --badge-pending-bg: rgba(120, 53, 15, 0.4);
+      --badge-pending-text: #fbbf24;
+      --badge-neutral-bg: #222222;
+      --badge-neutral-text: #a1a1a1;
+
+      --kagura-400: #f87171;
+      --kagura-500: #DC2626;
+      --kagura-600: #B91C1C;
+      --kagura-700: #991B1B;
+      --kagura-900: #601010;
+      --ember-400: #F97316;
+      --ember-500: #EA580C;
     }
-    * { box-sizing: border-box; }
+
+    /* === Reset & Base === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
       line-height: 1.5;
+      min-height: 100vh;
     }
-    header {
-      border-bottom: 1px solid var(--border);
-      padding: 1rem 2rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky;
-      top: 0;
-      background: var(--bg);
-      z-index: 100;
+
+    /* === Header === */
+    .header {
+      background-color: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
     }
-    header h1 {
-      margin: 0;
-      font-size: 1.25rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .red-gate { color: var(--primary); }
-    main {
-      padding: 2rem;
-      max-width: 1400px;
+    .header-inner {
+      max-width: 80rem;
       margin: 0 auto;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
-    }
-    .run-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-    .run-item {
+      padding: 0 1rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1rem 1.25rem;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: rgba(255,255,255,0.02);
-      cursor: pointer;
-      transition: all 0.15s ease;
+      height: 4rem;
     }
-    .run-item:hover { 
-      background: rgba(255,255,255,0.05);
-      border-color: var(--text-secondary);
-    }
-    .run-info { display: flex; flex-direction: column; gap: 0.25rem; }
-    .run-id { font-weight: 500; font-family: monospace; font-size: 0.9rem; }
-    .run-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 1rem; }
-    .status-badge {
-      padding: 0.35rem 0.75rem;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.025em;
-    }
-    .status-passed, .status-completed, .status-success { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
-    .status-failed, .status-error { background: rgba(239, 68, 68, 0.15); color: #f87171; }
-    .status-running { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
-    
-    #detail-view { display: none; }
-    .back-btn {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid var(--border);
-      color: var(--text);
-      cursor: pointer;
-      padding: 0.5rem 1rem;
-      margin-bottom: 1.5rem;
-      font-size: 0.875rem;
-      border-radius: 6px;
-      display: inline-flex;
+    @media (min-width: 640px) { .header-inner { padding: 0 1.5rem; } }
+    @media (min-width: 1024px) { .header-inner { padding: 0 2rem; } }
+    .header-logo {
+      display: flex;
       align-items: center;
       gap: 0.5rem;
-      transition: all 0.15s ease;
+      text-decoration: none;
     }
-    .back-btn:hover { background: rgba(255,255,255,0.15); }
-    
-    /* Detail View Styles */
-    .detail-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 2rem;
-      flex-wrap: wrap;
-      gap: 1rem;
+    .header-logo-text {
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: linear-gradient(to right, var(--kagura-400), var(--ember-400));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
-    .detail-title { 
-      font-size: 1.5rem; 
-      font-weight: 600; 
-      margin: 0 0 0.5rem 0;
-    }
-    .detail-url {
-      color: var(--text-muted);
-      font-size: 0.9rem;
-      word-break: break-all;
-    }
-    .stats-row {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-    .stat-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1rem 1.25rem;
-      min-width: 120px;
-    }
-    .stat-value { font-size: 1.75rem; font-weight: 700; }
-    .stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-    .stat-success { color: var(--success); }
-    .stat-error { color: var(--error); }
-    
-    /* Steps Timeline */
-    .steps-section { margin-top: 2rem; }
-    .steps-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; }
-    .step-item {
-      display: flex;
-      gap: 1rem;
-      padding: 1rem 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .step-item:last-child { border-bottom: none; }
-    .step-number {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .header-badge {
+      font-size: 0.625rem;
       font-weight: 600;
-      font-size: 0.8rem;
-      flex-shrink: 0;
-    }
-    .step-success { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-    .step-failed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-    .step-content { flex: 1; min-width: 0; }
-    .step-action {
-      font-size: 0.75rem;
-      color: var(--primary);
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      background: var(--bg-elevated);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 0.25rem;
     }
-    .step-description { font-weight: 500; margin-bottom: 0.25rem; }
-    .step-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 1rem; flex-wrap: wrap; }
-    .step-error { 
-      margin-top: 0.5rem;
-      padding: 0.5rem 0.75rem;
-      background: rgba(239, 68, 68, 0.1);
-      border-radius: 4px;
-      font-size: 0.8rem;
-      color: #fca5a5;
+
+    /* === Main layout === */
+    .main {
+      max-width: 80rem;
+      margin: 0 auto;
+      padding: 2rem 1rem;
     }
-    
-    /* Screenshots Gallery */
-    .screenshots-section { margin-top: 2rem; }
-    .screenshots-grid {
+    @media (min-width: 640px) { .main { padding: 2rem 1.5rem; } }
+    @media (min-width: 1024px) { .main { padding: 2rem; } }
+    .space-y-8 > * + * { margin-top: 2rem; }
+
+    /* === Card === */
+    .card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: var(--shadow-card);
+    }
+    .card-flush { padding: 0; overflow: hidden; }
+
+    /* === Stats Grid === */
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 1rem;
     }
-    .screenshot-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
-      cursor: pointer;
-      transition: all 0.15s ease;
+    @media (min-width: 768px) {
+      .stats-grid { grid-template-columns: repeat(4, 1fr); }
     }
-    .screenshot-card:hover {
-      border-color: var(--text-secondary);
-      transform: translateY(-2px);
+    .stat-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
     }
-    .screenshot-img {
+    .stat-value {
+      font-size: 1.875rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    /* === Section Header === */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* === Table === */
+    .table-wrap {
       width: 100%;
-      height: 180px;
-      object-fit: cover;
-      object-position: top;
-      background: #000;
+      overflow-x: auto;
     }
-    .screenshot-info {
-      padding: 0.75rem 1rem;
-      border-top: 1px solid var(--border);
+    table {
+      width: 100%;
+      border-collapse: collapse;
     }
-    .screenshot-label {
-      font-size: 0.8rem;
-      color: var(--text);
-      white-space: nowrap;
+    thead {
+      background-color: var(--bg-elevated);
+    }
+    th {
+      padding: 0.75rem 1.5rem;
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.025em;
+    }
+    th.text-right { text-align: right; }
+    td {
+      padding: 1rem 1.5rem;
+      font-size: 0.875rem;
+    }
+    tbody tr {
+      border-top: 1px solid var(--border-subtle);
+      transition: background-color 0.15s;
+    }
+    tbody tr:hover {
+      background-color: var(--bg-elevated);
+    }
+    .td-name {
+      font-weight: 500;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: color 0.15s;
+    }
+    .td-name:hover { color: var(--kagura-400); }
+    .td-url {
+      color: var(--text-muted);
+      max-width: 280px;
       overflow: hidden;
       text-overflow: ellipsis;
+      white-space: nowrap;
     }
-    .screenshot-step {
-      font-size: 0.7rem;
+    .td-actions {
+      text-align: right;
+    }
+    .td-actions-inner {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+
+    /* === Badges === */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.125rem 0.625rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      gap: 0.25rem;
+      white-space: nowrap;
+    }
+    .badge svg { width: 12px; height: 12px; flex-shrink: 0; }
+    .badge-success { background: var(--badge-success-bg); color: var(--badge-success-text); }
+    .badge-error { background: var(--badge-error-bg); color: var(--badge-error-text); }
+    .badge-pending { background: var(--badge-pending-bg); color: var(--badge-pending-text); }
+    .badge-neutral { background: var(--badge-neutral-bg); color: var(--badge-neutral-text); }
+
+    /* === Buttons === */
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 1rem;
+      background-color: var(--kagura-600);
+      color: #fff;
+      font-weight: 500;
+      border-radius: 0.5rem;
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-family: inherit;
+      transition: all 0.2s;
+      box-shadow: var(--shadow-fire);
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+    .btn-primary:hover { background-color: var(--kagura-500); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem 1rem;
+      background-color: var(--bg-elevated);
+      color: var(--text-primary);
+      font-weight: 500;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-family: inherit;
+      transition: all 0.2s;
+      gap: 0.5rem;
+      text-decoration: none;
+    }
+    .btn-secondary:hover { background-color: var(--bg-card); }
+
+    .btn-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      border: none;
+      background: transparent;
       color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
     }
-    
-    /* Modal */
-    .modal {
+    .btn-icon:hover {
+      background-color: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+    .btn-icon svg { width: 16px; height: 16px; }
+
+    /* === Empty State === */
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1.5rem;
+    }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    .empty-title {
+      font-size: 1.125rem;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 0.5rem;
+    }
+    .empty-desc {
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* === Detail View === */
+    .detail-view { display: none; }
+    .detail-view.active { display: block; }
+    .dashboard-view.hidden { display: none; }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      margin-bottom: 1rem;
+      background: none;
+      border: none;
+      font-family: inherit;
+    }
+    .back-link:hover { opacity: 0.8; }
+    .back-link svg { width: 16px; height: 16px; }
+
+    .detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .detail-title {
+      font-size: 1.875rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+    .detail-url {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: var(--text-secondary);
+      font-size: 0.875rem;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .detail-url:hover { color: var(--ember-400); }
+    .detail-url svg { width: 12px; height: 12px; }
+
+    .detail-badges {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+
+    .detail-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* === Steps list === */
+    .steps-list > * + * { margin-top: 0.75rem; }
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.15s;
+    }
+    .step-item.step-failed {
+      box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.5);
+    }
+    .step-icon { flex-shrink: 0; margin-top: 0.125rem; }
+    .step-icon svg { width: 20px; height: 20px; }
+    .step-icon-success { color: #4ade80; }
+    .step-icon-failed { color: #f87171; }
+    .step-icon-pending { color: var(--text-muted); }
+    .step-body { flex: 1; min-width: 0; }
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .step-desc {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .step-index {
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: var(--text-muted);
+      margin-right: 0.5rem;
+    }
+    .step-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+    .step-meta-text {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .step-action-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.125rem;
+    }
+    .step-error {
+      font-size: 0.75rem;
+      color: #f87171;
+      margin-top: 0.25rem;
+    }
+    .step-screenshot {
+      margin-top: 0.5rem;
+      margin-left: 2rem;
+      margin-bottom: 0.25rem;
+    }
+    .step-screenshot img {
+      max-height: 240px;
+      max-width: 100%;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .step-screenshot img:hover { opacity: 0.9; }
+
+    /* === Error Banner === */
+    .error-banner {
+      border-radius: 0.75rem;
+      padding: 1rem;
+      border: 1px solid rgba(127, 29, 29, 0.5);
+      background: rgba(220, 38, 38, 0.08);
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .error-banner-icon { flex-shrink: 0; margin-top: 0.125rem; color: #ef4444; }
+    .error-banner-icon svg { width: 20px; height: 20px; }
+    .error-banner-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #f87171;
+    }
+    .error-banner-detail {
+      font-size: 0.75rem;
+      color: #fca5a5;
+      margin-top: 0.25rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: monospace;
+    }
+    .error-banner-img {
+      margin-top: 0.75rem;
+      max-width: 100%;
+      max-height: 300px;
+      border-radius: 0.5rem;
+      border: 2px solid rgba(248, 113, 113, 0.5);
+      cursor: pointer;
+    }
+
+    /* === Collapsible Section === */
+    .collapsible {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      overflow: hidden;
+    }
+    .collapsible-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-primary);
+      font-family: inherit;
+      transition: background-color 0.15s;
+    }
+    .collapsible-toggle:hover { background: var(--bg-elevated); }
+    .collapsible-toggle-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .collapsible-toggle-left svg { width: 16px; height: 16px; color: var(--ember-400); }
+    .collapsible-toggle-title { font-size: 0.875rem; font-weight: 500; }
+    .collapsible-toggle-badge {
+      font-size: 0.75rem;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      background: rgba(234, 88, 12, 0.1);
+      color: var(--ember-400);
+    }
+    .collapsible-toggle svg.chevron { width: 16px; height: 16px; color: var(--text-muted); }
+    .collapsible-body {
+      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-input);
+    }
+    .collapsible-body pre {
+      padding: 1rem;
+      font-size: 0.875rem;
+      font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace;
+      color: var(--text-secondary);
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 0;
+    }
+
+    /* === Lightbox Modal === */
+    .lightbox {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.9);
+      background: rgba(0, 0, 0, 0.92);
       z-index: 1000;
       align-items: center;
       justify-content: center;
       padding: 2rem;
     }
-    .modal.active { display: flex; }
-    .modal-content {
-      max-width: 95vw;
-      max-height: 95vh;
-    }
-    .modal-img {
-      max-width: 100%;
-      max-height: 90vh;
-      border-radius: 8px;
-    }
-    .modal-close {
+    .lightbox.active { display: flex; }
+    .lightbox-close {
       position: absolute;
       top: 1rem;
       right: 1rem;
-      background: rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.1);
       border: none;
-      color: white;
+      color: #fff;
       width: 40px;
       height: 40px;
       border-radius: 50%;
       cursor: pointer;
-      font-size: 1.5rem;
+      font-size: 1.25rem;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: background 0.15s;
     }
-    .modal-close:hover { background: rgba(255,255,255,0.2); }
-    
-    .empty-state {
+    .lightbox-close:hover { background: rgba(255, 255, 255, 0.2); }
+    .lightbox img {
+      max-width: 95vw;
+      max-height: 90vh;
+      border-radius: 0.5rem;
+    }
+    .lightbox-caption {
+      position: absolute;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 0.875rem;
       text-align: center;
-      padding: 4rem 2rem;
-      color: var(--text-muted);
+      max-width: 80vw;
     }
-    .empty-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+    /* === Utility === */
+    .text-red-400 { color: #f87171; }
+    .text-green-400 { color: #4ade80; }
+    .text-ember-400 { color: var(--ember-400); }
+    .text-muted { color: var(--text-muted); }
+    .text-secondary { color: var(--text-secondary); }
+    .text-primary { color: var(--text-primary); }
+    .font-mono { font-family: 'SF Mono', 'Fira Code', Menlo, Consolas, monospace; }
+
+    /* Loading spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .animate-spin { animation: spin 1s linear infinite; }
+
+    /* === Responsive table fallback === */
+    @media (max-width: 640px) {
+      th, td { padding: 0.75rem 1rem; }
+      .detail-title { font-size: 1.5rem; }
+      .stat-value { font-size: 1.5rem; }
+    }
+
+    /* Summary card in detail view */
+    .summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+    }
+    .summary-card p:first-child {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+    .summary-text {
+      font-size: 0.875rem;
+      color: var(--text-primary);
+      line-height: 1.6;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1><span class="red-gate">⛩</span> Kagura Local Dashboard</h1>
-    <div style="color: var(--text-muted); font-size: 0.8rem;">Local Test Results</div>
+
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-logo">
+        <span style="font-size: 1.5rem;">&#x26E9;</span>
+        <span class="header-logo-text">Kagura AI</span>
+        <span class="header-badge">Local</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="font-size: 0.75rem; color: var(--text-muted);">
+          <span id="state-dir-display"></span>
+        </span>
+      </div>
+    </div>
   </header>
-  
-  <main>
-    <div id="list-view">
-      <h2 style="margin-top:0; margin-bottom: 0.5rem;">Test Runs</h2>
-      <p style="color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem;">
-        Viewing test results from <code style="background: rgba(255,255,255,0.1); padding: 0.15rem 0.4rem; border-radius: 4px;">~/.kagura/state</code>
-      </p>
-      <div class="run-list" id="runs-container">
-        <div class="empty-state">
-          <div class="empty-icon">🔄</div>
-          <p>Loading test runs...</p>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+
+    <!-- ===== DASHBOARD VIEW ===== -->
+    <div id="dashboard-view" class="dashboard-view">
+      <div class="space-y-8">
+
+        <!-- Welcome -->
+        <div>
+          <h1 style="font-size: 1.875rem; font-weight: 700; color: var(--text-primary);">Dashboard</h1>
+          <p style="margin-top: 0.25rem; color: var(--text-secondary); font-size: 0.875rem;">
+            Manage your tests and view results
+          </p>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid" id="stats-grid">
+          <div class="card">
+            <p class="stat-label">Total Tests</p>
+            <p class="stat-value text-primary" id="stat-total">-</p>
+          </div>
+          <div class="card">
+            <p class="stat-label">Failed Runs</p>
+            <p class="stat-value text-red-400" id="stat-failed">-</p>
+          </div>
+          <div class="card">
+            <p class="stat-label">Passed Runs</p>
+            <p class="stat-value text-green-400" id="stat-passed">-</p>
+          </div>
+          <div class="card">
+            <p class="stat-label">Pass Rate</p>
+            <p class="stat-value text-ember-400" id="stat-rate">-</p>
+          </div>
+        </div>
+
+        <!-- Section Header -->
+        <div class="section-header">
+          <h2 class="section-title">Your Tests</h2>
+        </div>
+
+        <!-- Tests Table / Empty State -->
+        <div id="tests-container">
+          <div class="card" style="text-align: center; padding: 3rem;">
+            <div style="font-size: 1.5rem; margin-bottom: 0.75rem;">
+              <svg style="display:inline-block;width:24px;height:24px;animation:spin 1s linear infinite;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            </div>
+            <p class="text-secondary" style="font-size: 0.875rem;">Loading test runs...</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ===== DETAIL VIEW ===== -->
+    <div id="detail-view" class="detail-view">
+      <div class="space-y-8">
+        <div>
+          <button class="back-link" onclick="showDashboard()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+            Back to Dashboard
+          </button>
+          <div id="detail-content"></div>
         </div>
       </div>
     </div>
 
-    <div id="detail-view">
-      <button class="back-btn" onclick="showList()">← Back to runs</button>
-      <div id="detail-content"></div>
-    </div>
   </main>
-  
-  <!-- Image Modal -->
-  <div class="modal" id="image-modal" onclick="closeModal()">
-    <button class="modal-close" onclick="closeModal()">×</button>
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <img class="modal-img" id="modal-img" src="" alt="Screenshot">
-    </div>
+
+  <!-- ===== LIGHTBOX ===== -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <img id="lightbox-img" src="" alt="Screenshot" onclick="event.stopPropagation()">
+    <div class="lightbox-caption" id="lightbox-caption"></div>
   </div>
 
+  <!-- ===== INLINE SVG ICON TEMPLATES ===== -->
   <script>
-    // Convert file:// URLs to served URLs
-    function getImageUrl(fileUrl) {
+    // SVG icon helpers (Lucide-style icons)
+    const icons = {
+      checkCircle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>',
+      xCircle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>',
+      clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+      alertCircle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',
+      alertTriangle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+      eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+      externalLink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>',
+      camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>',
+      chevronDown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+      chevronUp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>',
+      play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>',
+      terminal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+    };
+
+    // === Utility functions ===
+
+    function truncateUrl(url, maxLen = 50) {
+      if (!url) return '';
+      try {
+        const u = new URL(url);
+        let display = u.hostname + u.pathname;
+        if (display.length > maxLen) display = display.slice(0, maxLen) + '...';
+        return display;
+      } catch {
+        return url.length > maxLen ? url.slice(0, maxLen) + '...' : url;
+      }
+    }
+
+    function getImageUrl(fileUrl, runId) {
       if (!fileUrl) return '';
-      // Extract filename from file:// URL
+      if (fileUrl.startsWith('/api/')) return fileUrl;
+      if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) return fileUrl;
+      // file:// URL — extract filename
       const parts = fileUrl.split(/[/\\]/);
       const filename = parts[parts.length - 1];
-      const runId = parts[parts.length - 2];
-      return `/api/screenshots/${runId}/${filename}`;
+      const rid = runId || parts[parts.length - 2];
+      return `/api/screenshots/${rid}/${filename}`;
     }
-    
-    async function loadRuns() {
+
+    function formatDuration(ms) {
+      if (!ms && ms !== 0) return '-';
+      if (ms < 1000) return ms + 'ms';
+      const s = Math.round(ms / 1000);
+      if (s < 60) return s + 's';
+      const m = Math.floor(s / 60);
+      return m + 'm ' + (s % 60) + 's';
+    }
+
+    function formatDate(ts) {
+      if (!ts) return '';
+      const d = new Date(ts);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+        + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function statusBadge(status, verdict) {
+      // Verdict takes priority
+      if (verdict === 'passed' || (!verdict && status === 'passed') || status === 'success' || status === 'completed') {
+        return `<span class="badge badge-success">${icons.checkCircle} Passed</span>`;
+      }
+      if (verdict === 'failed' || (!verdict && status === 'failed')) {
+        return `<span class="badge badge-error">${icons.xCircle} Failed</span>`;
+      }
+      if (verdict === 'inconclusive') {
+        return `<span class="badge badge-pending">${icons.alertCircle} Inconclusive</span>`;
+      }
+      if (status === 'running') {
+        return `<span class="badge badge-pending"><span class="animate-spin" style="display:inline-flex">${icons.clock}</span> Running</span>`;
+      }
+      if (status === 'error') {
+        return `<span class="badge badge-error">${icons.alertCircle} Error</span>`;
+      }
+      return `<span class="badge badge-neutral">${status || 'Unknown'}</span>`;
+    }
+
+    function getRunName(run) {
+      return run.name || run.description || run.testName || ('Run ' + run.id.slice(0, 8));
+    }
+
+    // === State ===
+    let allRuns = [];
+
+    // === Data loading ===
+
+    async function loadDashboard() {
       try {
         const res = await fetch('/api/runs');
-        const runs = await res.json();
-        
-        const container = document.getElementById('runs-container');
-        if (runs.length === 0) {
-          container.innerHTML = `
-            <div class="empty-state">
-              <div class="empty-icon">🧪</div>
-              <p>No test runs found yet.</p>
-              <p style="font-size: 0.9rem;">Run <code style="background: rgba(255,255,255,0.1); padding: 0.15rem 0.4rem; border-radius: 4px;">kagura run --url &lt;url&gt; --desc "..."</code> to create your first test.</p>
-            </div>
-          `;
-          return;
-        }
-
-        container.innerHTML = runs.map(run => {
-          const statusClass = run.status === 'passed' || run.status === 'success' || run.status === 'completed' 
-            ? 'passed' 
-            : run.status === 'running' ? 'running' : 'failed';
-          return `
-            <div class="run-item" onclick="viewRun('${run.id}')">
-              <div class="run-info">
-                <div class="run-id">${run.id}</div>
-                <div class="run-meta">
-                  <span>📅 ${new Date(run.timestamp).toLocaleString()}</span>
-                  ${run.url ? `<span>🔗 ${run.url}</span>` : ''}
-                </div>
-              </div>
-              <span class="status-badge status-${statusClass}">${run.status || 'Completed'}</span>
-            </div>
-          `;
-        }).join('');
+        allRuns = await res.json();
+        renderStats(allRuns);
+        renderTable(allRuns);
       } catch (err) {
-        document.getElementById('runs-container').innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">❌</div>
-            <p style="color: #f87171;">Failed to load test runs.</p>
+        document.getElementById('tests-container').innerHTML = `
+          <div class="card empty-state">
+            <div class="empty-icon">&#10060;</div>
+            <p class="empty-title">Failed to load test runs</p>
+            <p class="empty-desc">${err.message || 'Check that the server is running.'}</p>
           </div>
         `;
       }
     }
 
+    function renderStats(runs) {
+      const total = runs.length;
+      const passed = runs.filter(r => r.status === 'passed' || r.status === 'success' || r.status === 'completed').length;
+      const failed = runs.filter(r => r.status === 'failed' || r.status === 'error').length;
+      const rate = (passed + failed) > 0 ? Math.round((passed / (passed + failed)) * 100) : 0;
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-failed').textContent = failed;
+      document.getElementById('stat-passed').textContent = passed;
+      document.getElementById('stat-rate').textContent = rate + '%';
+    }
+
+    function renderTable(runs) {
+      const container = document.getElementById('tests-container');
+
+      if (runs.length === 0) {
+        container.innerHTML = `
+          <div class="card empty-state">
+            <div class="empty-icon">&#129514;</div>
+            <p class="empty-title">No tests yet</p>
+            <p class="empty-desc">Run <code style="background: rgba(255,255,255,0.08); padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.8125rem;">kagura run --url &lt;url&gt; --desc "..."</code> to create your first test.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const rows = runs.map(run => {
+        const name = getRunName(run);
+        const url = run.url || '';
+        return `
+          <tr>
+            <td>
+              <span class="td-name" onclick="viewRun('${run.id}')">${escapeHtml(name)}</span>
+            </td>
+            <td>
+              <span class="td-url">${escapeHtml(truncateUrl(url))}</span>
+            </td>
+            <td>
+              ${statusBadge(run.status, run.verdict)}
+            </td>
+            <td class="td-actions">
+              <div class="td-actions-inner">
+                <button class="btn-icon" onclick="viewRun('${run.id}')" title="View">
+                  ${icons.eye}
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="card card-flush">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Test Name</th>
+                  <th>URL</th>
+                  <th>Status</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // === Detail View ===
+
     async function viewRun(id) {
-      document.getElementById('list-view').style.display = 'none';
-      document.getElementById('detail-view').style.display = 'block';
+      document.getElementById('dashboard-view').classList.add('hidden');
+      document.getElementById('detail-view').classList.add('active');
       const content = document.getElementById('detail-content');
-      content.innerHTML = '<div class="empty-state"><div class="empty-icon">🔄</div><p>Loading test details...</p></div>';
+      content.innerHTML = `
+        <div style="text-align: center; padding: 3rem;">
+          <div style="font-size: 1.5rem; margin-bottom: 0.75rem;">
+            <svg style="display:inline-block;width:24px;height:24px;animation:spin 1s linear infinite;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          </div>
+          <p class="text-secondary" style="font-size: 0.875rem;">Loading test details...</p>
+        </div>
+      `;
 
       try {
         const res = await fetch(`/api/runs/${id}`);
         const data = await res.json();
-        
-        const steps = data.steps || [];
-        const screenshots = data.screenshots || [];
-        const passedSteps = steps.filter(s => s.status === 'success').length;
-        const failedSteps = steps.filter(s => s.status === 'failed').length;
-        const status = failedSteps > 0 ? 'failed' : 'passed';
-        const duration = data.updatedAt && data.startedAt 
-          ? Math.round((new Date(data.updatedAt) - new Date(data.startedAt)) / 1000)
-          : 0;
-        
-        content.innerHTML = `
-          <div class="card">
-            <div class="detail-header">
-              <div>
-                <h2 class="detail-title">${status === 'passed' ? '✅' : '❌'} Test ${status === 'passed' ? 'Passed' : 'Failed'}</h2>
-                <div class="detail-url">🔗 ${data.currentUrl || 'Unknown URL'}</div>
-              </div>
-              <span class="status-badge status-${status}">${status}</span>
-            </div>
-            
-            <div class="stats-row">
-              <div class="stat-card">
-                <div class="stat-value">${steps.length}</div>
-                <div class="stat-label">Total Steps</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value stat-success">${passedSteps}</div>
-                <div class="stat-label">Passed</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value stat-error">${failedSteps}</div>
-                <div class="stat-label">Failed</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${duration}s</div>
-                <div class="stat-label">Duration</div>
-              </div>
-            </div>
-          </div>
-          
-          ${screenshots.length > 0 ? `
-            <div class="screenshots-section">
-              <h3 class="steps-title">📸 Screenshots (${screenshots.length})</h3>
-              <div class="screenshots-grid">
-                ${screenshots.map((ss, i) => `
-                  <div class="screenshot-card" onclick="openModal('${getImageUrl(ss.url)}')">
-                    <img class="screenshot-img" src="${getImageUrl(ss.url)}" alt="${ss.label || 'Screenshot'}" loading="lazy" onerror="this.style.display='none'">
-                    <div class="screenshot-info">
-                      <div class="screenshot-label">${ss.label || 'Screenshot ' + (i + 1)}</div>
-                      <div class="screenshot-step">Step ${ss.stepIndex !== undefined ? ss.stepIndex + 1 : i + 1}</div>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          ` : ''}
-          
-          <div class="steps-section">
-            <h3 class="steps-title">📋 Test Steps (${steps.length})</h3>
-            ${steps.map((step, i) => `
-              <div class="step-item">
-                <div class="step-number ${step.status === 'success' ? 'step-success' : 'step-failed'}">
-                  ${step.status === 'success' ? '✓' : '✗'}
-                </div>
-                <div class="step-content">
-                  <div class="step-action">${step.action || 'action'}</div>
-                  <div class="step-description">${step.description || 'Step ' + (i + 1)}</div>
-                  <div class="step-meta">
-                    <span>⏱️ ${step.durationMs || step.duration_ms || 0}ms</span>
-                    ${step.screenshotUrl || step.screenshot_url ? `<span style="color: var(--primary); cursor: pointer;" onclick="openModal('${getImageUrl(step.screenshotUrl || step.screenshot_url)}')">📷 View screenshot</span>` : ''}
-                  </div>
-                  ${step.errorMessage || step.error ? `<div class="step-error">⚠️ ${step.errorMessage || step.error}</div>` : ''}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        `;
+        renderDetail(id, data);
+        window.scrollTo(0, 0);
       } catch (e) {
         content.innerHTML = `
-          <div class="empty-state">
-            <div class="empty-icon">❌</div>
-            <p style="color: #f87171;">Failed to load test details.</p>
+          <div class="card empty-state">
+            <div class="empty-icon">&#10060;</div>
+            <p class="empty-title">Failed to load test details</p>
+            <p class="empty-desc">${e.message || ''}</p>
           </div>
         `;
       }
     }
 
-    function showList() {
-      document.getElementById('detail-view').style.display = 'none';
-      document.getElementById('list-view').style.display = 'block';
+    function renderDetail(runId, data) {
+      const content = document.getElementById('detail-content');
+      const steps = data.steps || [];
+      const screenshots = data.screenshots || [];
+      const passedSteps = steps.filter(s => s.status === 'success').length;
+      const failedSteps = steps.filter(s => s.status === 'failed').length;
+      const totalSteps = steps.length;
+
+      // Determine overall status
+      const status = failedSteps > 0 ? 'failed' : 'passed';
+      const verdict = data.result || data.verdict || null;
+
+      // Duration
+      let durationMs = data.durationMs || data.duration_ms || null;
+      if (!durationMs && data.updatedAt && data.startedAt) {
+        durationMs = new Date(data.updatedAt) - new Date(data.startedAt);
+      }
+
+      // Name & URL
+      const name = data.testName || data.name || data.description || 'Test Run ' + runId.slice(0, 8);
+      const url = data.currentUrl || data.url || data.targetUrl || '';
+
+      // Summary
+      const summary = data.ai_summary || data.summary || null;
+
+      // Find failed step for error banner
+      const failedStep = steps.find(s => s.status === 'failed');
+
+      // Build the detail HTML
+      let html = '';
+
+      // Header
+      html += `
+        <div class="detail-header">
+          <div>
+            <h1 class="detail-title">${escapeHtml(name)}</h1>
+            ${url ? `
+              <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" class="detail-url">
+                ${escapeHtml(truncateUrl(url, 60))}
+                ${icons.externalLink}
+              </a>
+            ` : ''}
+            <div class="detail-badges">
+              ${statusBadge(status, verdict)}
+              ${durationMs ? `<span class="badge badge-neutral">${icons.clock} ${formatDuration(durationMs)}</span>` : ''}
+              <span class="badge badge-neutral">${totalSteps} step${totalSteps !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Error Banner (if there's a failed step)
+      if (failedStep) {
+        const errorScreenshot = failedStep.screenshotUrl || failedStep.screenshot_url || null;
+        html += `
+          <div class="error-banner">
+            <div class="error-banner-icon">${icons.alertTriangle}</div>
+            <div style="flex: 1; min-width: 0;">
+              <p class="error-banner-title">Failed at Step ${(failedStep.index ?? steps.indexOf(failedStep)) + 1}: ${escapeHtml(failedStep.description || 'Unknown step')}</p>
+              ${(failedStep.errorMessage || failedStep.error) ? `<pre class="error-banner-detail">${escapeHtml(failedStep.errorMessage || failedStep.error)}</pre>` : ''}
+              ${errorScreenshot ? `<img class="error-banner-img" src="${getImageUrl(errorScreenshot, runId)}" alt="Failure screenshot" loading="lazy" onclick="openLightbox('${getImageUrl(errorScreenshot, runId)}', 'Failure screenshot')">` : ''}
+            </div>
+          </div>
+        `;
+      }
+
+      // AI Summary
+      if (summary) {
+        html += `
+          <div class="summary-card">
+            <p style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 0.5rem;">AI Summary</p>
+            <div class="summary-text">${escapeHtml(summary)}</div>
+          </div>
+        `;
+      }
+
+      // Steps
+      html += `<div style="margin-top: 1.5rem;">`;
+      html += `<h3 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.75rem;">Steps (${totalSteps})</h3>`;
+      html += `<div class="steps-list">`;
+
+      steps.forEach((step, idx) => {
+        const isSuccess = step.status === 'success';
+        const isFailed = step.status === 'failed';
+        const iconClass = isSuccess ? 'step-icon-success' : isFailed ? 'step-icon-failed' : 'step-icon-pending';
+        const icon = isSuccess ? icons.checkCircle : isFailed ? icons.xCircle : icons.clock;
+        const stepDuration = step.durationMs || step.duration_ms || null;
+        const screenshotUrl = step.screenshotUrl || step.screenshot_url || null;
+
+        // Screenshot persistence: use most recent if current step has none
+        let effectiveScreenshot = screenshotUrl;
+        if (!effectiveScreenshot) {
+          for (let i = idx - 1; i >= 0; i--) {
+            const prev = steps[i].screenshotUrl || steps[i].screenshot_url;
+            if (prev) { effectiveScreenshot = prev; break; }
+          }
+        }
+
+        html += `
+          <div>
+            <div class="step-item ${isFailed ? 'step-failed' : ''}">
+              <div class="step-icon ${iconClass}">${icon}</div>
+              <div class="step-body">
+                <div class="step-header">
+                  <p class="step-desc">
+                    <span class="step-index">${(step.index ?? idx) + 1}</span>
+                    ${escapeHtml(step.description || 'Step ' + (idx + 1))}
+                  </p>
+                  <div class="step-meta">
+                    ${screenshotUrl ? `<span style="color: var(--ember-400);">${icons.camera}</span>` : ''}
+                    ${stepDuration != null ? `<span class="step-meta-text">${stepDuration}ms</span>` : ''}
+                  </div>
+                </div>
+                ${step.action ? `<p class="step-action-label">${escapeHtml(step.action)}</p>` : ''}
+                ${(step.errorMessage || step.error) ? `<p class="step-error">${escapeHtml(step.errorMessage || step.error)}</p>` : ''}
+              </div>
+            </div>
+            ${effectiveScreenshot && !isFailed ? `
+              <div class="step-screenshot">
+                <img src="${getImageUrl(effectiveScreenshot, runId)}" alt="Step ${idx + 1}" loading="lazy"
+                     onclick="openLightbox('${getImageUrl(effectiveScreenshot, runId)}', '${escapeHtml(step.description || 'Step ' + (idx + 1))}')"
+                     onerror="this.parentElement.style.display='none'">
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+
+      html += `</div></div>`;
+
+      // Console Logs (collapsible)
+      const consoleLogs = data.consoleLogs || data.console_logs || null;
+      if (consoleLogs) {
+        html += `
+          <div class="collapsible" style="margin-top: 1.5rem;">
+            <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+              <div class="collapsible-toggle-left">
+                ${icons.terminal}
+                <span class="collapsible-toggle-title">Console Output</span>
+              </div>
+              <span class="chevron">${icons.chevronDown}</span>
+            </button>
+            <div class="collapsible-body" style="display: none;">
+              <pre style="background: #0d1117; color: #c9d1d9;">${escapeHtml(consoleLogs)}</pre>
+            </div>
+          </div>
+        `;
+      }
+
+      // Screenshots gallery (if there are screenshots beyond what steps show)
+      if (screenshots.length > 0) {
+        html += `
+          <div class="collapsible" style="margin-top: 1.5rem;">
+            <button class="collapsible-toggle" onclick="toggleCollapsible(this)">
+              <div class="collapsible-toggle-left">
+                ${icons.camera}
+                <span class="collapsible-toggle-title">Screenshots</span>
+                <span class="collapsible-toggle-badge">${screenshots.length}</span>
+              </div>
+              <span class="chevron">${icons.chevronDown}</span>
+            </button>
+            <div class="collapsible-body" style="display: none; padding: 1rem;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem;">
+                ${screenshots.map((ss, i) => {
+                  const imgUrl = getImageUrl(ss.url, runId);
+                  return `
+                    <div style="border-radius: 0.5rem; overflow: hidden; border: 1px solid var(--border-color); cursor: pointer; transition: all 0.15s;"
+                         onclick="openLightbox('${imgUrl}', '${escapeHtml(ss.label || 'Screenshot ' + (i + 1))}')"
+                         onmouseover="this.style.borderColor='var(--text-muted)'"
+                         onmouseout="this.style.borderColor='var(--border-color)'">
+                      <img src="${imgUrl}" alt="${escapeHtml(ss.label || 'Screenshot')}" loading="lazy"
+                           style="width: 100%; height: 160px; object-fit: cover; object-position: top; background: #000; display: block;"
+                           onerror="this.parentElement.style.display='none'">
+                      <div style="padding: 0.5rem 0.75rem; border-top: 1px solid var(--border-color);">
+                        <div style="font-size: 0.8125rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(ss.label || 'Screenshot ' + (i + 1))}</div>
+                        <div style="font-size: 0.6875rem; color: var(--text-muted);">Step ${ss.stepIndex !== undefined ? ss.stepIndex + 1 : i + 1}</div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      content.innerHTML = html;
     }
-    
-    function openModal(src) {
-      document.getElementById('modal-img').src = src;
-      document.getElementById('image-modal').classList.add('active');
+
+    // === Navigation ===
+
+    function showDashboard() {
+      document.getElementById('detail-view').classList.remove('active');
+      document.getElementById('dashboard-view').classList.remove('hidden');
+      window.scrollTo(0, 0);
     }
-    
-    function closeModal() {
-      document.getElementById('image-modal').classList.remove('active');
+
+    // === Lightbox ===
+
+    function openLightbox(src, caption) {
+      document.getElementById('lightbox-img').src = src;
+      document.getElementById('lightbox-caption').textContent = caption || '';
+      document.getElementById('lightbox').classList.add('active');
     }
-    
-    // Close modal on escape
+
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.remove('active');
+      document.getElementById('lightbox-img').src = '';
+    }
+
+    // === Collapsible sections ===
+
+    function toggleCollapsible(btn) {
+      const body = btn.nextElementSibling;
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      const chevron = btn.querySelector('.chevron');
+      if (chevron) chevron.innerHTML = isOpen ? icons.chevronDown : icons.chevronUp;
+    }
+
+    // === Keyboard shortcuts ===
+
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') closeModal();
+      if (e.key === 'Escape') {
+        if (document.getElementById('lightbox').classList.contains('active')) {
+          closeLightbox();
+        } else if (document.getElementById('detail-view').classList.contains('active')) {
+          showDashboard();
+        }
+      }
     });
 
-    loadRuns();
+    // Handle browser back/forward
+    window.addEventListener('popstate', () => {
+      showDashboard();
+    });
+
+    // === Init ===
+    loadDashboard();
   </script>
 </body>
 </html>

@@ -52,13 +52,15 @@ export async function uiCommand() {
               // Determine status from steps
               const steps = data.steps || [];
               const hasFailed = steps.some((s: any) => s.status === 'failed');
-              
+
               return {
                 id,
                 timestamp: stat.mtimeMs,
                 status: hasFailed ? 'failed' : 'passed',
                 url: data.currentUrl || null,
                 stepsCount: steps.length,
+                name: data.testName || data.name || data.description || null,
+                verdict: data.result || data.verdict || null,
               };
             } catch {
               return null;
