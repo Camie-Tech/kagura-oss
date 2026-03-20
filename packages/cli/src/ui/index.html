@@ -577,6 +577,38 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .animate-spin { animation: spin 1s linear infinite; }
 
+    /* === Live update pulse animation === */
+    @keyframes pulse-highlight {
+      0% { background-color: rgba(249, 115, 22, 0.15); }
+      100% { background-color: transparent; }
+    }
+    .live-pulse {
+      animation: pulse-highlight 1.2s ease-out;
+    }
+    @keyframes dot-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.6875rem;
+      color: var(--text-muted);
+      transition: opacity 0.3s;
+    }
+    .live-indicator-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4ade80;
+      animation: dot-pulse 2s ease-in-out infinite;
+    }
+    .live-indicator.disconnected .live-indicator-dot {
+      background: var(--text-muted);
+      animation: none;
+    }
+
     /* === Responsive table fallback === */
     @media (max-width: 640px) {
       th, td { padding: 0.75rem 1rem; }
@@ -614,6 +646,10 @@
         <span class="header-badge">Local</span>
       </div>
       <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="live-indicator" id="live-indicator">
+          <span class="live-indicator-dot"></span>
+          <span id="live-indicator-text">Live</span>
+        </div>
         <span style="font-size: 0.75rem; color: var(--text-muted);">
           <span id="state-dir-display"></span>
         </span>
@@ -1144,8 +1180,143 @@
       showDashboard();
     });
 
+    // === SSE: Live updates ===
+
+    let lastRunsJSON = '';
+    let eventSource = null;
+    let currentDetailRunId = null;
+
+    function connectSSE() {
+      if (eventSource) {
+        eventSource.close();
+      }
+
+      eventSource = new EventSource('/api/events');
+
+      eventSource.addEventListener('connected', () => {
+        updateLiveIndicator(true);
+      });
+
+      eventSource.addEventListener('runs-updated', () => {
+        refreshDashboard();
+      });
+
+      eventSource.addEventListener('error', () => {
+        updateLiveIndicator(false);
+        // EventSource auto-reconnects, no manual retry needed
+      });
+
+      eventSource.onopen = () => {
+        updateLiveIndicator(true);
+      };
+    }
+
+    function updateLiveIndicator(connected) {
+      const indicator = document.getElementById('live-indicator');
+      const text = document.getElementById('live-indicator-text');
+      if (connected) {
+        indicator.classList.remove('disconnected');
+        text.textContent = 'Live';
+      } else {
+        indicator.classList.add('disconnected');
+        text.textContent = 'Reconnecting...';
+      }
+    }
+
+    async function refreshDashboard() {
+      try {
+        const res = await fetch('/api/runs');
+        const newRuns = await res.json();
+        const newJSON = JSON.stringify(newRuns);
+
+        // Skip re-render if nothing changed
+        if (newJSON === lastRunsJSON) return;
+
+        // Detect which run IDs changed for targeted pulse animations
+        const oldMap = {};
+        allRuns.forEach(r => { oldMap[r.id] = JSON.stringify(r); });
+
+        const changedIds = new Set();
+        const isNewRun = new Set();
+        newRuns.forEach(r => {
+          if (!oldMap[r.id]) {
+            isNewRun.add(r.id);
+            changedIds.add(r.id);
+          } else if (oldMap[r.id] !== JSON.stringify(r)) {
+            changedIds.add(r.id);
+          }
+        });
+
+        lastRunsJSON = newJSON;
+        allRuns = newRuns;
+
+        // Only update dashboard view if it's visible
+        const dashboardVisible = !document.getElementById('dashboard-view').classList.contains('hidden');
+        if (dashboardVisible) {
+          renderStats(allRuns);
+          renderTable(allRuns);
+
+          // Apply pulse animation to changed items
+          if (changedIds.size > 0) {
+            // Pulse stats cards
+            document.querySelectorAll('#stats-grid .card').forEach(card => {
+              card.classList.remove('live-pulse');
+              void card.offsetWidth; // Force reflow to restart animation
+              card.classList.add('live-pulse');
+            });
+
+            // Pulse changed table rows
+            const rows = document.querySelectorAll('#tests-container tbody tr');
+            rows.forEach((row, idx) => {
+              if (allRuns[idx] && changedIds.has(allRuns[idx].id)) {
+                row.classList.remove('live-pulse');
+                void row.offsetWidth;
+                row.classList.add('live-pulse');
+              }
+            });
+          }
+        }
+
+        // If viewing a detail that changed, refresh it too
+        if (currentDetailRunId && changedIds.has(currentDetailRunId)) {
+          refreshDetailView(currentDetailRunId);
+        }
+      } catch (err) {
+        // Silently ignore fetch errors during refresh
+      }
+    }
+
+    async function refreshDetailView(id) {
+      try {
+        const res = await fetch(`/api/runs/${id}`);
+        const data = await res.json();
+        renderDetail(id, data);
+      } catch {
+        // Keep existing detail view on error
+      }
+    }
+
+    // Patch viewRun to track current detail ID
+    const _originalViewRun = viewRun;
+    viewRun = async function(id) {
+      currentDetailRunId = id;
+      await _originalViewRun(id);
+    };
+
+    // Patch showDashboard to clear detail tracking and refresh
+    const _originalShowDashboard = showDashboard;
+    showDashboard = function() {
+      currentDetailRunId = null;
+      _originalShowDashboard();
+      // Refresh data when returning to dashboard
+      refreshDashboard();
+    };
+
     // === Init ===
-    loadDashboard();
+    loadDashboard().then(() => {
+      lastRunsJSON = JSON.stringify(allRuns);
+    });
+    connectSSE();
   </script>
 </body>
 </html>
