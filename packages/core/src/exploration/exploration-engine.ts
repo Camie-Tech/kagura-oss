@@ -12,6 +12,13 @@ import { normalizeProviderError, type DeploymentMode } from '../providers/provid
 import { touchState, createEmptyState, type AgentExecutionState } from '../state.js'
 import { captureScreenshot, executeSingleAction } from '../agent/action-executor.js'
 import type { ExplorationConfig, ExplorationSiteMap } from '../types.js'
+import {
+  generateNextAddress,
+  readLatestEmail,
+  extractVerificationCode,
+  extractVerificationLink,
+} from '../skills/email/index.js'
+import type { Email } from '../skills/email/index.js'
 
 function toJson<T>(value: T): any {
   return JSON.parse(JSON.stringify(value))
@@ -25,6 +32,9 @@ type ExplorerAction =
   | { action: 'wait'; selector?: string; description: string }
   | { action: 'back'; description: string }
   | { action: 'ask_user'; message: string; description: string }
+  | { action: 'read_email'; description: string; toAddress?: string; matchingSubject?: string }
+  | { action: 'extract_code'; description: string }
+  | { action: 'extract_link'; description: string }
   | { action: 'done'; description: string; reason?: string }
 
 const DEFAULT_CONFIG: ExplorationConfig = {
@@ -48,6 +58,7 @@ export function normalizeExplorationConfig(config?: Partial<ExplorationConfig> |
     timeout: clampInt(config?.timeout, DEFAULT_CONFIG.timeout, 10_000, 60 * 60 * 1000),
     suggestedTestCount: clampInt(config?.suggestedTestCount, DEFAULT_CONFIG.suggestedTestCount, 1, 25),
     autoRun: Boolean((config as any)?.autoRun ?? DEFAULT_CONFIG.autoRun),
+    emailConfig: config?.emailConfig,
   }
 }
 
@@ -113,6 +124,20 @@ function parseExplorerAction(text: string): ExplorerAction | null {
     if (action === 'ask_user' && typeof (parsed as any).message === 'string') {
       return { action: 'ask_user', message: (parsed as any).message, description: String((parsed as any).description || 'Ask user') }
     }
+    if (action === 'read_email') {
+      return {
+        action: 'read_email',
+        description: String((parsed as any).description || 'Read email'),
+        toAddress: typeof (parsed as any).toAddress === 'string' ? (parsed as any).toAddress : undefined,
+        matchingSubject: typeof (parsed as any).matchingSubject === 'string' ? (parsed as any).matchingSubject : undefined,
+      }
+    }
+    if (action === 'extract_code') {
+      return { action: 'extract_code', description: String((parsed as any).description || 'Extract verification code') }
+    }
+    if (action === 'extract_link') {
+      return { action: 'extract_link', description: String((parsed as any).description || 'Extract verification link') }
+    }
     if (action === 'done') {
       return {
         action: 'done',
@@ -127,23 +152,49 @@ function parseExplorerAction(text: string): ExplorerAction | null {
   }
 }
 
-function buildSystemPrompt(args: { instructions?: string | null; credentialValues?: Record<string, string> | null }): string {
+function buildSystemPrompt(args: {
+  instructions?: string | null
+  credentialValues?: Record<string, string> | null
+  generatedCredentials?: boolean
+  emailConfigured?: boolean
+}): string {
   const lines: string[] = [
     'You are a QA explorer. Autonomously explore the web app. Discover pages, forms, buttons, interactive elements. Map user flows. Note what each page does. Take screenshots of significant pages.',
     'Do NOT test assertions. Avoid logout/delete/destructive actions.',
     'Respond with ONLY one JSON action object per turn.',
-    '',
-    'If you encounter a login/signup page and credentials are available, log in and continue exploring.',
-    'If you encounter an auth wall with no credentials available, use ask_user to request credentials.',
   ]
+
+  if (args.generatedCredentials && args.credentialValues) {
+    lines.push(
+      '',
+      'FRESH AUTO-GENERATED CREDENTIALS (not yet registered on the site):',
+      JSON.stringify(args.credentialValues),
+      '',
+      'These credentials were auto-generated. When you encounter a login/signup page:',
+      '1. Look for a "Sign Up" or "Register" link/button and click it',
+      '2. Fill the signup form with the email and password above',
+      '3. Submit the form',
+      '4. If the site requires email verification, use the read_email action to check for it',
+      '5. Use extract_code (for OTP) or extract_link (for verification URL)',
+      '6. Complete verification, then continue exploring authenticated pages',
+    )
+  } else if (args.credentialValues && Object.keys(args.credentialValues).length > 0) {
+    lines.push(
+      '',
+      'If you encounter a login/signup page and credentials are available, log in and continue exploring.',
+      // NOTE: Cloud must redact secrets in UI logs; this is only for the model.
+      'Credentials are available. Use them if login is required:',
+      JSON.stringify(args.credentialValues),
+    )
+  } else {
+    lines.push(
+      '',
+      'If you encounter an auth wall with no credentials available, use ask_user to request credentials.',
+    )
+  }
 
   if (args.instructions?.trim()) {
     lines.push('', `User instructions: ${args.instructions.trim()}`)
-  }
-
-  if (args.credentialValues && Object.keys(args.credentialValues).length > 0) {
-    // NOTE: Cloud must redact secrets in UI logs; this is only for the model.
-    lines.push('', 'Credentials are available. Use them if login is required:', JSON.stringify(args.credentialValues))
   }
 
   lines.push(
@@ -159,6 +210,14 @@ function buildSystemPrompt(args: { instructions?: string | null; credentialValue
     '- done {"action":"done","description":"...","reason":"..."}',
   )
 
+  if (args.emailConfigured) {
+    lines.push(
+      '- read_email {"action":"read_email","description":"...","toAddress?":"...","matchingSubject?":"..."} — poll inbox for verification email',
+      '- extract_code {"action":"extract_code","description":"..."} — extract OTP/verification code from last read email',
+      '- extract_link {"action":"extract_link","description":"..."} — extract verification URL from last read email',
+    )
+  }
+
   return lines.join('\n')
 }
 
@@ -172,11 +231,12 @@ function buildTurnContext(args: {
   analysis: PageAnalysis
   domSummary: string
   recentActions: string[]
+  emailContext?: string | null
 }): string {
   const visited = args.siteMap.pages.map((p) => `${p.depth}:${p.url}`).slice(-20)
   const recent = args.recentActions.slice(-10)
 
-  return [
+  const lines = [
     `Target URL: ${args.targetUrl}`,
     `Turn: ${args.turn}`,
     `Depth: ${args.depth}/${args.config.maxDepth}`,
@@ -191,9 +251,15 @@ function buildTurnContext(args: {
     '',
     `Recent actions: ${recent.length ? recent.join(' | ') : '(none)'}`,
     `Visited (recent): ${visited.length ? visited.join(' | ') : '(none)'}`,
-    '',
-    'Pick the next best exploration action. Prefer new internal links or navigation.',
-  ].join('\n')
+  ]
+
+  if (args.emailContext) {
+    lines.push('', 'Email context:', args.emailContext)
+  }
+
+  lines.push('', 'Pick the next best exploration action. Prefer new internal links or navigation.')
+
+  return lines.join('\n')
 }
 
 function emptySiteMap(): ExplorationSiteMap {
@@ -262,9 +328,36 @@ export async function runExploration(params: {
 
   // Load credentials (optional)
   const creds = await adapters.credentials.getForUrl(userId, targetUrl).catch(() => [])
-  const credentialValues = creds[0]?.values || null
+  let credentialValues: Record<string, string> | null = creds[0]?.values || null
+  let generatedCredentials = false
+  let generatedEmail: string | null = null
 
-  const system = buildSystemPrompt({ instructions: params.instructions, credentialValues })
+  // If no saved credentials and email skill is configured, auto-generate
+  if (!credentialValues && config.emailConfig) {
+    const generated = await generateNextAddress(
+      config.emailConfig.baseEmail,
+      config.emailConfig.variationCounter ?? 1
+    ).catch(() => null)
+
+    if (generated) {
+      credentialValues = { email: generated.email, password: generated.password }
+      generatedCredentials = true
+      generatedEmail = generated.email
+      adapters.events.emit({
+        type: 'log',
+        timestamp: Date.now(),
+        data: { runId, message: `Auto-generated credentials: ${generated.email}` },
+      })
+    }
+  }
+
+  const emailConfigured = Boolean(config.emailConfig)
+  const system = buildSystemPrompt({
+    instructions: params.instructions,
+    credentialValues,
+    generatedCredentials,
+    emailConfigured,
+  })
 
   const browser = await chromium.launch({ headless: true })
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } })
@@ -279,6 +372,8 @@ export async function runExploration(params: {
     await captureScreenshot(adapters, page, runId, -1, 'Exploration start')
 
     let depth = 0
+    let lastReadEmail: Email | null = null
+    let emailContext: string | null = null
 
     while (Date.now() - start < config.timeout) {
       if (adapters.interaction.isAborted()) {
@@ -313,6 +408,7 @@ export async function runExploration(params: {
         analysis,
         domSummary,
         recentActions: steps,
+        emailContext,
       })
 
       const aiText = await adapters.ai.completeText({ system, prompt, maxTokens: 512, temperature: 0.2 }, userId)
@@ -393,10 +489,80 @@ export async function runExploration(params: {
         }
         continue
       }
+
+      if (action.action === 'read_email') {
+        if (!config.emailConfig) {
+          steps.push('READ_EMAIL: email skill not configured, skipping')
+          emailContext = 'Email skill is not configured'
+          continue
+        }
+        steps.push(`READ_EMAIL: ${action.description}`)
+        const email = await readLatestEmail(config.emailConfig, {
+          toAddress: action.toAddress || generatedEmail || undefined,
+          matchingSubject: action.matchingSubject ? new RegExp(action.matchingSubject, 'i') : undefined,
+          since: new Date(Date.now() - 5 * 60 * 1000),
+        }).catch(() => null)
+        lastReadEmail = email
+        if (email) {
+          const subject = email.subject || '(no subject)'
+          const preview = (typeof email.text === 'string' ? email.text : '').slice(0, 200)
+          emailContext = `Email received — subject: "${subject}", preview: "${preview}"`
+          steps.push(`EMAIL_RECEIVED: subject="${subject}"`)
+        } else {
+          emailContext = 'No matching email found within timeout'
+          steps.push('EMAIL_RECEIVED: no matching email found')
+        }
+        continue
+      }
+
+      if (action.action === 'extract_code') {
+        if (!lastReadEmail) {
+          steps.push('EXTRACT_CODE: no email read yet — use read_email first')
+          emailContext = 'Cannot extract code: no email has been read yet'
+          continue
+        }
+        const code = extractVerificationCode(lastReadEmail)
+        if (code) {
+          emailContext = `Verification code extracted: ${code}`
+          steps.push(`EXTRACT_CODE: ${code}`)
+        } else {
+          emailContext = 'No verification code found in email'
+          steps.push('EXTRACT_CODE: no code found')
+        }
+        continue
+      }
+
+      if (action.action === 'extract_link') {
+        if (!lastReadEmail) {
+          steps.push('EXTRACT_LINK: no email read yet — use read_email first')
+          emailContext = 'Cannot extract link: no email has been read yet'
+          continue
+        }
+        const link = extractVerificationLink(lastReadEmail)
+        if (link) {
+          emailContext = `Verification link extracted: ${link}`
+          steps.push(`EXTRACT_LINK: ${link}`)
+        } else {
+          emailContext = 'No verification link found in email'
+          steps.push('EXTRACT_LINK: no link found')
+        }
+        continue
+      }
+    }
+
+    // Save generated credentials in state metadata for future reuse
+    const completionMeta = Object.assign({}, state.metadata || {}, { exploration: toJson({ siteMap, steps }) })
+    if (generatedCredentials && credentialValues) {
+      completionMeta.generatedCredentials = toJson(credentialValues)
+      adapters.events.emit({
+        type: 'log',
+        timestamp: Date.now(),
+        data: { runId, message: 'credentials_generated', credentials: { email: credentialValues.email }, targetUrl },
+      })
     }
 
     adapters.events.emit({ type: 'completed', timestamp: Date.now(), data: { runId, status: 'completed', pages: siteMap.pages.length } })
-    state = touchState({ ...state, currentUrl: page.url(), metadata: { ...(state.metadata || {}), exploration: toJson({ siteMap, steps }) } })
+    state = touchState({ ...state, currentUrl: page.url(), metadata: completionMeta })
     await adapters.state.save(runId, state)
 
     return { status: 'completed', siteMap, steps, state }

@@ -5,6 +5,8 @@
  * and made framework-agnostic.
  */
 
+import type { EmailSkillConfig } from './skills/email/types.js'
+
 // ── Test Configuration ─────────────────────────────────────────────────────
 
 export interface TestConfig {
@@ -81,6 +83,8 @@ export interface ExplorationConfig {
   timeout: number
   suggestedTestCount: number
   autoRun: boolean
+  /** Optional email skill config for auto-generating credentials and handling verification flows. */
+  emailConfig?: EmailSkillConfig
 }
 
 // ── Exploration Site Map ───────────────────────────────────────────────────
